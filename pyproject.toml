@@ -1,0 +1,23 @@
+[project]
+name = "emergencybd-backend-private"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "argon2-cffi>=25.1.0",
+    "fastapi[standard]>=0.116.1",
+    "pydantic[email]>=2.11.7",
+    "pydantic-settings>=2.10.1",
+    "pyjwt>=2.10.1",
+    "sqlmodel>=0.0.24",
+    "python-dotenv>=1.1.1",
+    "sqlcipher3-binary>=0.5.4",
+    "cryptography>=45.0.7",
+    "pillow>=11.3.0",
+    "python-multipart>=0.0.20",
+    "pyotp>=2.9.0",
+]
+
+[dependency-groups]
+dev = ["gunicorn>=23.0.0"]
