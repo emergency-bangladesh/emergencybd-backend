@@ -23,7 +23,7 @@ async def get_profile_pic(uuid: UUID):
 
 @router.get("/volunteer/{uuid}/nid-1")
 async def get_nid_1(uuid: UUID, admin: CurrentAdmin):
-    file_path = config.construct_nid_front_image_path(uuid)
+    file_path = config.construct_nid_first_image_path(uuid)
     if not os.path.exists(file_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Image not found"

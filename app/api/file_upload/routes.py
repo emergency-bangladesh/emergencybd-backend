@@ -14,7 +14,7 @@ from .schema import FileUploadData
 router = APIRouter(prefix="/file-upload", tags=["File Upload"])
 
 
-def process_and_save_image(image_file: UploadFile, output_path: str):
+def _process_and_save_image(image_file: UploadFile, output_path: str):
     try:
         img = Image.open(image_file.file)
 
@@ -59,11 +59,11 @@ async def upload_nid_images(
             status_code=status.HTTP_404_NOT_FOUND, detail="Volunteer not found"
         )
 
-    nid_first_img_path = config.construct_nid_front_image_path(volunteer_uuid)
-    process_and_save_image(nid_first_img, str(nid_first_img_path))
+    nid_first_img_path = config.construct_nid_first_image_path(volunteer_uuid)
+    _process_and_save_image(nid_first_img, str(nid_first_img_path))
 
     nid_second_img_path = config.construct_nid_second_image_path(volunteer_uuid)
-    process_and_save_image(nid_second_img, str(nid_second_img_path))
+    _process_and_save_image(nid_second_img, str(nid_second_img_path))
 
     return ApiResponse(
         message="NID images uploaded successfully", data=FileUploadData(uploaded=True)
@@ -83,7 +83,7 @@ async def upload_profile_pic(
         )
 
     profile_pic_path = config.construct_profile_pic_path(volunteer_uuid)
-    process_and_save_image(profile_pic, str(profile_pic_path))
+    _process_and_save_image(profile_pic, str(profile_pic_path))
 
     return ApiResponse(
         message="Profile picture uploaded successfully",
@@ -112,7 +112,7 @@ async def upload_lost_and_found_images(
 
     for i, image in enumerate(images):
         image_path = config.construct_lost_and_found_image_path(issue_uuid, i + 1)
-        process_and_save_image(image, str(image_path))
+        _process_and_save_image(image, str(image_path))
 
     return ApiResponse(
         message="Lost and Found issue images uploaded successfully",

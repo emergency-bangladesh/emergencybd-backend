@@ -22,21 +22,6 @@ class VolunteerCreate(BaseModel):
     gender: Literal["male", "female", "intersex"]
 
 
-class VolunteerListResponse(BaseModel):
-    volunteer_uuid: UUID
-    full_name: str
-    phone_number: str
-    email_address: str
-    permanent_upazila: str
-    permanent_district: str
-    current_upazila: str
-    current_district: str
-    blood_group: str
-    status: str
-
-    model_config = {"from_attributes": True}
-
-
 class TeamInformation(BaseModel):
     team_name: str
     role: TeamMemberRole
@@ -73,5 +58,5 @@ class VolunteerCreateData(BaseModel):
     status: str
 
 
-class VolunteerUpdateDeleteData(BaseModel):
+class VolunteerUUID(BaseModel):
     volunteer_uuid: UUID

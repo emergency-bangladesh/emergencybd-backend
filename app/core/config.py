@@ -25,9 +25,15 @@ class AppConfig(BaseSettings):
     jwt_refresh_key: str = Field(..., validation_alias="JWT_REFRESH_KEY")
     jwt_otp_key: str = Field(..., validation_alias="JWT_OTP_KEY")
     jwt_password_reset_key: str = Field(..., validation_alias="JWT_PASSWORD_RESET_KEY")
-    jwt_access_token_expiration: int = Field(..., validation_alias="JWT_ACCESS_TOKEN_EXPIRATION")
-    jwt_refresh_token_expiration: int = Field(..., validation_alias="JWT_REFRESH_TOKEN_EXPIRATION")
-    jwt_otp_token_expiration: int = Field(..., validation_alias="JWT_OTP_TOKEN_EXPIRATION")
+    jwt_access_token_expiration: int = Field(
+        ..., validation_alias="JWT_ACCESS_TOKEN_EXPIRATION"
+    )
+    jwt_refresh_token_expiration: int = Field(
+        ..., validation_alias="JWT_REFRESH_TOKEN_EXPIRATION"
+    )
+    jwt_otp_token_expiration: int = Field(
+        ..., validation_alias="JWT_OTP_TOKEN_EXPIRATION"
+    )
     jwt_password_reset_token_expiration: int = Field(
         ..., validation_alias="JWT_PASSWORD_RESET_TOKEN_EXPIRATION"
     )
@@ -77,7 +83,8 @@ class AppConfig(BaseSettings):
             value=access_token,
             max_age=self.jwt_access_token_expiration,
             expires=(
-                datetime.now(timezone.utc) + timedelta(seconds=self.jwt_access_token_expiration)
+                datetime.now(timezone.utc)
+                + timedelta(seconds=self.jwt_access_token_expiration)
             ),
             **self._cookie_settings,
         )
@@ -88,7 +95,20 @@ class AppConfig(BaseSettings):
             value=refresh_token,
             max_age=self.jwt_refresh_token_expiration,
             expires=(
-                datetime.now(timezone.utc) + timedelta(seconds=self.jwt_refresh_token_expiration)
+                datetime.now(timezone.utc)
+                + timedelta(seconds=self.jwt_refresh_token_expiration)
+            ),
+            **self._cookie_settings,
+        )
+
+    def admin_refresh_token_cookie_options(self, refresh_token: str) -> dict[str, Any]:
+        return dict(
+            key=self.jwt_refresh_key,
+            value=refresh_token,
+            max_age=self.jwt_refresh_token_expiration,
+            expires=(
+                datetime.now(timezone.utc)
+                + timedelta(seconds=self.jwt_access_token_expiration * 2)
             ),
             **self._cookie_settings,
         )
@@ -98,11 +118,16 @@ class AppConfig(BaseSettings):
             key=self.jwt_otp_key,
             value=otp_token,
             max_age=self.jwt_otp_token_expiration,
-            expires=(datetime.now(timezone.utc) + timedelta(seconds=self.jwt_otp_token_expiration)),
+            expires=(
+                datetime.now(timezone.utc)
+                + timedelta(seconds=self.jwt_otp_token_expiration)
+            ),
             **self._cookie_settings,
         )
 
-    def password_reset_token_cookie_options(self, password_reset_token: str) -> dict[str, Any]:
+    def password_reset_token_cookie_options(
+        self, password_reset_token: str
+    ) -> dict[str, Any]:
         return dict(
             key=self.jwt_password_reset_key,
             value=password_reset_token,
@@ -114,7 +139,7 @@ class AppConfig(BaseSettings):
             **self._cookie_settings,
         )
 
-    def construct_nid_front_image_path(self, volunteer_uuid: UUID) -> Path:
+    def construct_nid_first_image_path(self, volunteer_uuid: UUID) -> Path:
         return self.nid_dir / f"{volunteer_uuid}_nid_first.webp"
 
     def construct_nid_second_image_path(self, volunteer_uuid: UUID) -> Path:
@@ -123,7 +148,9 @@ class AppConfig(BaseSettings):
     def construct_profile_pic_path(self, volunteer_uuid: UUID) -> Path:
         return self.profile_pic_dir / f"{volunteer_uuid}.webp"
 
-    def construct_lost_and_found_image_path(self, issue_uuid: UUID, image_number: int) -> Path:
+    def construct_lost_and_found_image_path(
+        self, issue_uuid: UUID, image_number: int
+    ) -> Path:
         return self.lost_and_found_dir / f"{issue_uuid}_image_{image_number}.webp"
 
     @field_validator(

@@ -5,7 +5,7 @@ from sqlmodel import select
 
 from ...core.config import config
 from ...core.security import hash_password
-from ...database.models.account import Account, AccountStatus
+from ...database.models.account import Account, AccountStatus, User
 from ...database.models.identifier import BRN, NID
 from ...database.models.volunteer import (
     Volunteer,
@@ -28,16 +28,15 @@ from .schema import (
     VolunteerCreate,
     VolunteerCreateData,
     VolunteerDetailResponse,
-    VolunteerListResponse,
     VolunteerUpdate,
-    VolunteerUpdateDeleteData,
+    VolunteerUUID,
 )
 
 router = APIRouter(prefix="/volunteers", tags=["volunteers"])
 
 
 # Get all volunteers
-@router.get("/", response_model=ApiResponse[list[VolunteerListResponse]])
+@router.get("/", response_model=ApiResponse[list[VolunteerDetailResponse]])
 def get_volunteers(
     db: DatabaseSession,
     _: CurrentAdmin,
@@ -46,10 +45,15 @@ def get_volunteers(
 ):
     stmt = select(Volunteer).offset(skip).limit(limit)
     volunteers = db.exec(stmt).all()
-    return ApiResponse(
-        message="Volunteers retrieved successfully",
-        data=[
-            VolunteerListResponse(
+    now = get_utc_time()
+
+    volunteer_details: list[VolunteerDetailResponse] = []
+    for v in volunteers:
+        active_team_memberships = [
+            t for t in v.team_memberships if t.team.expiration_date >= now.date()
+        ]
+        volunteer_details.append(
+            VolunteerDetailResponse(
                 volunteer_uuid=v.uuid,
                 full_name=v.full_name,
                 email_address=v.account.email_address,
@@ -60,9 +64,23 @@ def get_volunteers(
                 current_upazila=v.current_upazila,
                 blood_group=v.blood_group,
                 status=v.status.value,
+                created_at=v.created_at,
+                last_updated=v.last_updated,
+                issue_responses=len(v.issue_responses),
+                identifier_type=v.identifier_type.value,
+                current_team_information=TeamInformation(
+                    team_name=active_team_memberships[0].team.name,
+                    role=active_team_memberships[0].role,
+                    team_uuid=active_team_memberships[0].team.uuid,
+                )
+                if active_team_memberships
+                else None,
             )
-            for v in volunteers
-        ],
+        )
+
+    return ApiResponse(
+        message="Volunteers retrieved successfully",
+        data=volunteer_details,
     )
 
 
@@ -76,28 +94,22 @@ def create_volunteer(
     payload: VolunteerCreate, db: DatabaseSession, background_tasks: BackgroundTasks
 ):
     # Check if an account with the given phone number or email already exists
-    existing_account = db.scalar(
+    account = db.scalar(
         select(Account).where(
             (Account.phone_number == payload.phone_number)
             | (Account.email_address == payload.email_address)
         )
     )
-
-    if existing_account:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An account with this phone number or email already exists.",
+    # Create a new account if no existing account
+    if not account:
+        account = Account(
+            phone_number=payload.phone_number,
+            email_address=payload.email_address,
+            password_hash=hash_password(payload.password),
         )
-
-    # Create a new account
-    account = Account(
-        phone_number=payload.phone_number,
-        email_address=payload.email_address,
-        password_hash=hash_password(payload.password),
-    )
-    db.add(account)
-    db.commit()
-    db.refresh(account)
+        db.add(account)
+        db.commit()
+        db.refresh(account)
 
     id_type = (
         VolunteerIdentifierType.nid
@@ -147,6 +159,12 @@ def create_volunteer(
     db.commit()
     db.refresh(volunteer)
 
+    # delete the user data if account is an user object
+    user = db.get(User, account.uuid)
+    if user:
+        db.delete(user)
+        db.commit()
+
     background_tasks.add_task(
         send_email,
         mailto=payload.email_address,
@@ -171,7 +189,9 @@ Team Emergency Bangladesh
 
     return ApiResponse(
         message="Volunteer registration submitted. Awaiting manual validation.",
-        data=VolunteerCreateData(volunteer_uuid=volunteer.uuid, status=volunteer.status.value),
+        data=VolunteerCreateData(
+            volunteer_uuid=volunteer.uuid, status=volunteer.status.value
+        ),
     )
 
 
@@ -239,11 +259,13 @@ def recent_volunteer_activities(
         )
     recent_activities = get_volunteer_recent_activities(db, volunteer)
 
-    return ApiResponse(message="Volunteer details retrieved successfully", data=recent_activities)
+    return ApiResponse(
+        message="Volunteer details retrieved successfully", data=recent_activities
+    )
 
 
 # Update a logged in volunteer
-@router.patch("/update", response_model=ApiResponse[VolunteerUpdateDeleteData])
+@router.patch("/update", response_model=ApiResponse[VolunteerUUID])
 def update_volunteer(
     payload: VolunteerUpdate,
     db: DatabaseSession,
@@ -260,12 +282,15 @@ def update_volunteer(
     db.refresh(volunteer)
     return ApiResponse(
         message="Volunteer profile updated successfully.",
-        data=VolunteerUpdateDeleteData(volunteer_uuid=volunteer.uuid),
+        data=VolunteerUUID(volunteer_uuid=volunteer.uuid),
     )
 
 
 # Update a volunteer with volunteer_uuid
-@router.patch("/{volunteer_uuid}/update", response_model=ApiResponse[VolunteerUpdateDeleteData])
+@router.patch(
+    "/{volunteer_uuid}/update/current-location",
+    response_model=ApiResponse[VolunteerUUID],
+)
 def update_volunteer_by_uuid(
     volunteer_uuid: UUID, payload: VolunteerUpdate, db: DatabaseSession, _: CurrentAdmin
 ):
@@ -284,12 +309,41 @@ def update_volunteer_by_uuid(
     db.refresh(volunteer)
     return ApiResponse(
         message="Volunteer profile updated successfully.",
-        data=VolunteerUpdateDeleteData(volunteer_uuid=volunteer.uuid),
+        data=VolunteerUUID(volunteer_uuid=volunteer.uuid),
+    )
+
+
+@router.patch(
+    "/{volunteer_uuid}/update/status/{status}",
+    response_model=ApiResponse[VolunteerUUID],
+)
+def update_volunteer_status(
+    volunteer_uuid: UUID, status: VolunteerStatus, db: DatabaseSession, _: CurrentAdmin
+):
+    volunteer = db.get(Volunteer, volunteer_uuid)
+    if not volunteer:
+        raise HTTPException(404, detail="Volunteer not found")
+
+    volunteer.status = status
+    volunteer.last_updated = get_utc_time()
+
+    db.add(volunteer)
+
+    db.commit()
+    db.refresh(volunteer)
+
+    # if status == VolunteerStatus.verified:
+    #     os.remove(config.construct_nid_first_image_path(volunteer_uuid))
+    #     os.remove(config.construct_nid_second_image_path(volunteer_uuid))
+
+    return ApiResponse(
+        message="Volunteer status updated successfully.",
+        data=VolunteerUUID(volunteer_uuid=volunteer.uuid),
     )
 
 
 # Delete a volunteer that is currently logged in
-@router.delete("/delete", response_model=ApiResponse[VolunteerUpdateDeleteData])
+@router.delete("/delete", response_model=ApiResponse[VolunteerUUID])
 def delete_logged_in_volunteer(volunteer: CurrentVolunteer, db: DatabaseSession):
     volunteer.status = VolunteerStatus.terminated
     volunteer.last_updated = get_utc_time()
@@ -302,13 +356,15 @@ def delete_logged_in_volunteer(volunteer: CurrentVolunteer, db: DatabaseSession)
     db.refresh(volunteer)
     return ApiResponse(
         message="Volunteer account deleted.",
-        data=VolunteerUpdateDeleteData(volunteer_uuid=volunteer.uuid),
+        data=VolunteerUUID(volunteer_uuid=volunteer.uuid),
     )
 
 
 # Delete a volunteer with volunteer_uuid
-@router.delete("/{volunteer_uuid}/delete", response_model=ApiResponse[VolunteerUpdateDeleteData])
-def delete_volunteer_by_uuid(volunteer_uuid: UUID, db: DatabaseSession, _: CurrentAdmin):
+@router.delete("/{volunteer_uuid}/delete", response_model=ApiResponse[VolunteerUUID])
+def delete_volunteer_by_uuid(
+    volunteer_uuid: UUID, db: DatabaseSession, _: CurrentAdmin
+):
     volunteer = db.get(Volunteer, volunteer_uuid)
     account = db.get(Account, volunteer_uuid)
 
@@ -323,5 +379,5 @@ def delete_volunteer_by_uuid(volunteer_uuid: UUID, db: DatabaseSession, _: Curre
 
     return ApiResponse(
         message="Volunteer account deleted.",
-        data=VolunteerUpdateDeleteData(volunteer_uuid=volunteer_uuid),
+        data=VolunteerUUID(volunteer_uuid=volunteer_uuid),
     )

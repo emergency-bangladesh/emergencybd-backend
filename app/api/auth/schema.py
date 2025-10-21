@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import EmailStr, field_validator
 
 from ...core.security import validate_password
+from ...database.models.account import AdminRole
 from ..global_schema import BaseModel
 
 
@@ -22,6 +23,14 @@ class LoginInformation(BaseModel):
     phone_number: str
     uuid: UUID
     account_type: Literal["volunteer", "general_user"]
+
+
+class AdminLoginInformation(BaseModel):
+    name: str
+    email: EmailStr
+    phone_number: str
+    uuid: UUID
+    role: AdminRole
 
 
 class LoginCredentials(BaseModel):

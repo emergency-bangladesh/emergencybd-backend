@@ -44,6 +44,7 @@ app.add_middleware(
         "http://localhost:3000",
         "https://emergencybd.com",
         "https://www.emergencybd.com",
+        "https://manage.emergencybd.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],

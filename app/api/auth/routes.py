@@ -9,15 +9,16 @@ from sqlmodel import select
 
 from ...core.config import config
 from ...core.security import hash_password, verify_password
-from ...database.models.account import Account, AccountStatus, User
+from ...database.models.account import Account, AccountStatus, Admin, User
 from ...database.models.token import RefreshToken
 from ...database.models.volunteer import Volunteer
 from ...services.email import send_email
 from ...services.token import decode_token, encode_token
 from ...utils.time import get_utc_time
-from ..dependencies import DatabaseSession, LoggedInAccount
+from ..dependencies import CurrentAdmin, DatabaseSession, LoggedInAccount
 from ..global_schema import ApiResponse
 from .schema import (
+    AdminLoginInformation,
     LoginCredentials,
     LoginInformation,
     OTPSendRequest,
@@ -40,8 +41,8 @@ router = APIRouter(prefix="/auth", tags=["Authentication Routes"])
 def get_user_information(
     account: LoggedInAccount, db: DatabaseSession
 ) -> ApiResponse[LoginInformation]:
-    volunteer = db.scalar(select(Volunteer).where(Volunteer.uuid == account.uuid))
-    user = db.scalar(select(User).where(User.uuid == account.uuid))
+    volunteer = db.get(Volunteer, account.uuid)
+    user = db.get(User, account.uuid)
 
     if volunteer:
         return ApiResponse(
@@ -54,8 +55,7 @@ def get_user_information(
                 uuid=account.uuid,
             ),
         )
-    else:
-        assert user
+    elif user:
         return ApiResponse(
             message="User information retrieved successfully",
             data=LoginInformation(
@@ -66,6 +66,29 @@ def get_user_information(
                 uuid=account.uuid,
             ),
         )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found",
+        )
+
+
+@router.get(
+    "/admin/me",
+    summary="Get current admin's information",
+    response_model=ApiResponse[AdminLoginInformation],
+)
+def get_admin_information(admin: CurrentAdmin) -> ApiResponse[AdminLoginInformation]:
+    return ApiResponse(
+        message="Admin information retrieved successfully",
+        data=AdminLoginInformation(
+            name=admin.full_name,
+            email=admin.account.email_address,
+            phone_number=admin.account.phone_number,
+            uuid=admin.uuid,
+            role=admin.role,
+        ),
+    )
 
 
 @router.post(
@@ -113,6 +136,60 @@ def login(cred: LoginCredentials, db: DatabaseSession):
 
     response.set_cookie(**config.access_token_cookie_options(access_token))
     response.set_cookie(**config.refresh_token_cookie_options(refresh_token))
+
+    return response
+
+
+@router.post(
+    "/admin/login",
+    summary="Authenticate an admin and issue an access token",
+    response_model=ApiResponse,
+)
+def admin_login(cred: LoginCredentials, db: DatabaseSession):
+    account = db.scalar(
+        select(Account).where(
+            Account.email_address == cred.email
+            and Account.status == AccountStatus.active
+        )
+    )
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
+        )
+    if not verify_password(cred.password, account.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid credentials"
+        )
+    admin = db.get(Admin, account.uuid)
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid credentials"
+        )
+    access_token = encode_token({"uuid": str(account.uuid), "type": "access"})
+    jti = str(uuid4())
+    refresh_token = encode_token(
+        {"uuid": str(account.uuid), "jti": jti, "type": "refresh"},
+        expiry_timedelta=timedelta(seconds=config.jwt_refresh_token_expiration),
+    )
+
+    db_refresh_token = RefreshToken(
+        account_uuid=account.uuid,
+        refresh_token_jti=jti,
+        created_at=get_utc_time(),
+        expires_at=(
+            get_utc_time() + timedelta(seconds=config.jwt_refresh_token_expiration)
+        ),
+    )
+    db.add(db_refresh_token)
+    db.commit()
+
+    response = JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=ApiResponse(message="Login successful").model_dump(),
+    )
+
+    response.set_cookie(**config.access_token_cookie_options(access_token))
+    response.set_cookie(**config.admin_refresh_token_cookie_options(refresh_token))
 
     return response
 
