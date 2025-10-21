@@ -1,8 +1,10 @@
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
-from sqlmodel import Field, Relationship, SQLModel
 
+from sqlmodel import Column, Field, Relationship, SQLModel
+
+from ...types.datetime_utc import SQLAlchemyDateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
@@ -19,8 +21,12 @@ class TeamPlan(SQLModel, table=True):
     target_upazila: str = Field(index=True)
     start_date: date = Field(index=True)
     end_date: date = Field(index=True)
-    created_at: datetime = Field(default_factory=get_utc_time)
-    last_updated: datetime = Field(default_factory=get_utc_time)
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
+    last_updated: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
     team: "Team" = Relationship(back_populates="plans")
     activities: list["PlanActivity"] = Relationship(
@@ -34,8 +40,12 @@ class PlanActivity(SQLModel, table=True):
     details: str
     exact_location: str
     effective_date: date = Field(index=True)
-    created_at: datetime = Field(default_factory=get_utc_time)
-    last_updated: datetime = Field(default_factory=get_utc_time)
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
+    last_updated: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
     plan: "TeamPlan" = Relationship(back_populates="activities")
     updates: list["ActivityUpdate"] = Relationship(
@@ -53,9 +63,16 @@ class ActivityUpdate(SQLModel, table=True):
     )
     title: str = Field(index=True)
     details: str
-    effective_time: datetime = Field(index=True)
-    created_at: datetime = Field(default_factory=get_utc_time)
-    last_updated: datetime = Field(default_factory=get_utc_time)
+    effective_time: datetime = Field(
+        default_factory=get_utc_time,
+        sa_column=Column(SQLAlchemyDateTimeUTC, index=True),
+    )
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
+    last_updated: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
     activity: "PlanActivity" = Relationship(back_populates="updates")
     volunteer: "Volunteer" = Relationship(back_populates="activity_updates")

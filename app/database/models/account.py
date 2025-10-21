@@ -3,12 +3,12 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Column, Field, Relationship, SQLModel
 
+from ...types.datetime_utc import SQLAlchemyDateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
-    from .identifier import BRN, NID
     from .token import RefreshToken
 
 
@@ -29,15 +29,17 @@ class Account(SQLModel, table=True):
     phone_number: str = Field(index=True, unique=True)
     email_address: str = Field(index=True, unique=True)
     password_hash: str
-    last_login: datetime | None = Field(default=None)
     status: AccountStatus = Field(default=AccountStatus.active, index=True)
-    created_at: datetime = Field(default_factory=get_utc_time)
+    last_login: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
     refresh_tokens: list["RefreshToken"] = Relationship(
         back_populates="account", cascade_delete=True
     )
-    nid: "NID" = Relationship(back_populates="account", cascade_delete=True)
-    brn: "BRN" = Relationship(back_populates="account", cascade_delete=True)
 
 
 class User(SQLModel, table=True):
@@ -48,7 +50,9 @@ class User(SQLModel, table=True):
     birth_date_cipher: bytes | None = Field(default=None)
     birth_date_nonce: bytes | None = Field(default=None)
     status: AccountStatus = Field(default=AccountStatus.active, index=True)
-    created_at: datetime = Field(default_factory=get_utc_time)
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
     account: "Account" = Relationship()
 
@@ -60,6 +64,8 @@ class Admin(SQLModel, table=True):
     full_name: str
     role: AdminRole = Field(index=True)
     status: AccountStatus = Field(default=AccountStatus.active, index=True)
-    created_at: datetime = Field(default_factory=get_utc_time)
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
     account: "Account" = Relationship()

@@ -2,8 +2,9 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Column, Field, Relationship, SQLModel
 
+from ...types.datetime_utc import SQLAlchemyDateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
@@ -16,8 +17,12 @@ class RefreshToken(SQLModel, table=True):
         foreign_key="account.uuid", index=True, ondelete="CASCADE"
     )
     refresh_token_jti: str
-    created_at: datetime = Field(default_factory=get_utc_time)
-    expires_at: datetime
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
+    expires_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
     revoked: bool = Field(default=False)
 
     account: "Account" = Relationship(back_populates="refresh_tokens")

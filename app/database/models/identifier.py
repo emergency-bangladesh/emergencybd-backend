@@ -1,8 +1,10 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
-from sqlmodel import Field, Relationship, SQLModel
 
+from sqlmodel import Column, Field, Relationship, SQLModel
+
+from ...types.datetime_utc import SQLAlchemyDateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
@@ -17,9 +19,11 @@ class NID(SQLModel, table=True):
     nid_hmac: bytes = Field(index=True)
     nid_cipher: bytes
     nid_nonce: bytes
-    created_at: datetime = Field(default_factory=get_utc_time)
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
-    account: "Account" = Relationship(back_populates="nid")
+    account: "Account" = Relationship()
 
 
 class BRN(SQLModel, table=True):
@@ -30,6 +34,8 @@ class BRN(SQLModel, table=True):
     brn_hmac: bytes = Field(index=True)
     brn_cipher: bytes
     brn_nonce: bytes
-    created_at: datetime = Field(default_factory=get_utc_time)
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
-    account: "Account" = Relationship(back_populates="brn")
+    account: "Account" = Relationship()

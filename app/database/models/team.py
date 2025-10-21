@@ -3,8 +3,9 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Column, Field, Relationship, SQLModel
 
+from ...types.datetime_utc import SQLAlchemyDateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
@@ -28,8 +29,12 @@ class Team(SQLModel, table=True):
     co_leader_uuid: UUID | None = Field(
         default=None, foreign_key="volunteer.uuid", index=True, ondelete="SET NULL"
     )
-    created_at: datetime = Field(default_factory=get_utc_time)
-    last_updated: datetime = Field(default_factory=get_utc_time)
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
+    last_updated: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
     leader: "Volunteer" = Relationship(
         back_populates="teams_led",
@@ -52,7 +57,10 @@ class TeamMember(SQLModel, table=True):
         foreign_key="volunteer.uuid", index=True, ondelete="CASCADE"
     )
     role: TeamMemberRole = Field(index=True, default=TeamMemberRole.member)
-    joined_at: datetime = Field(default_factory=get_utc_time)
+    joined_at: datetime = Field(
+        default_factory=get_utc_time,
+        sa_column=Column(SQLAlchemyDateTimeUTC, index=True),
+    )
 
     team: "Team" = Relationship(back_populates="members")
     volunteer: "Volunteer" = Relationship(back_populates="team_memberships")

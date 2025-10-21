@@ -127,7 +127,11 @@ def login(cred: LoginCredentials, db: DatabaseSession):
         ),
     )
     db.add(db_refresh_token)
+
+    account.last_login = get_utc_time()
+    db.add(account)
     db.commit()
+    db.refresh(account)
 
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -181,6 +185,11 @@ def admin_login(cred: LoginCredentials, db: DatabaseSession):
         ),
     )
     db.add(db_refresh_token)
+
+    account.last_login = get_utc_time()
+    admin.account.last_login = get_utc_time()
+    db.add(account)
+    db.add(admin)
     db.commit()
 
     response = JSONResponse(

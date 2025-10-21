@@ -3,8 +3,9 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Column, Field, Relationship, SQLModel
 
+from ...types.datetime_utc import SQLAlchemyDateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
@@ -42,8 +43,12 @@ class Issue(SQLModel, table=True):
     emergency_phone_number: str = Field(index=True)
     status: IssueStatus = Field(index=True, default=IssueStatus.open)
     category: IssueCategory = Field(index=True)
-    created_at: datetime = Field(default_factory=get_utc_time)
-    last_updated: datetime = Field(default_factory=get_utc_time)
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
+    last_updated: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
     account: "Account" = Relationship()
     volunteer_responses: list["VolunteerIssueResponse"] = Relationship(
@@ -67,8 +72,12 @@ class BloodDonationIssue(SQLModel, table=True):
     district: str
     upazila: str
     instructions: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=get_utc_time)
-    last_updated: datetime = Field(default_factory=get_utc_time)
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
+    last_updated: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
     issue: "Issue" = Relationship()
 
@@ -90,8 +99,12 @@ class LostAndFoundIssue(SQLModel, table=True):
     upazila: str
     blood_group: str | None = Field(default=None)
     occupation: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=get_utc_time)
-    last_updated: datetime = Field(default_factory=get_utc_time)
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
+    last_updated: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
     issue: "Issue" = Relationship()
 
@@ -99,9 +112,13 @@ class LostAndFoundIssue(SQLModel, table=True):
 class VolunteerIssueResponse(SQLModel, table=True):
     uuid: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     issue_uuid: UUID = Field(foreign_key="issue.uuid", index=True)
-    volunteer_uuid: UUID = Field(foreign_key="volunteer.uuid", index=True)
+    volunteer_uuid: UUID = Field(
+        default=None, foreign_key="volunteer.uuid", index=True, ondelete="CASCADE"
+    )
     status_mark: IssueResponseStatus | None = Field(default=None, index=True)
-    created_at: datetime = Field(default_factory=get_utc_time)
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    )
 
     issue: "Issue" = Relationship(back_populates="volunteer_responses")
     volunteer: "Volunteer" = Relationship(back_populates="issue_responses")
