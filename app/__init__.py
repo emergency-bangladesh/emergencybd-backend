@@ -7,8 +7,10 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .api.auth.routes import router as auth_router
+from .api.expense_record.routes import router as expense_record_router
 from .api.file_upload.routes import router as file_upload_router
 from .api.image.routes import router as image_router
+from .api.incoming_record.routes import router as income_record_router
 from .api.issue.routes import router as issue_router
 from .api.team.routes import router as team_router
 from .api.validate.routes import router as validate_router
@@ -90,8 +92,10 @@ create_database()
 
 for router in [
     auth_router,
+    expense_record_router,
     file_upload_router,
     image_router,
+    income_record_router,
     issue_router,
     team_router,
     validate_router,
