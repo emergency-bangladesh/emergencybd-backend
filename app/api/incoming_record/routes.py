@@ -155,7 +155,7 @@ def update_incoming_record(
     )
 
 
-@router.delete("/delete/{record_uuid}", status_code=204)
+@router.delete("/delete/{record_uuid}", response_model=ApiResponse[None])
 def delete_incoming_record(
     _: CurrentAdmin, record_uuid: UUID, db: DatabaseSession
 ) -> ApiResponse[None]:

@@ -129,8 +129,8 @@ def update_expense_record(
     )
 
 
-@router.delete("/delete/{record_uuid}", status_code=204)
-def delete_expense_record(
+@router.delete("/delete/{record_uuid}", response_model=ApiResponse[None])
+def delete_expense_record_by_uuid(
     _: CurrentAdmin, record_uuid: UUID, db: DatabaseSession
 ) -> ApiResponse[None]:
     record = db.get(ExpenseRecord, record_uuid)

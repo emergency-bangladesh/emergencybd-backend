@@ -25,9 +25,6 @@ class IncomingRecordRead(IncomingRecordBase):
     uuid: UUID
     payment_id: int
 
-    class Config:
-        orm_mode = True
-
 
 class IncomingRecordUpdate(BaseModel):
     amount: int | None = None

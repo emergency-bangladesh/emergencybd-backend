@@ -24,9 +24,6 @@ class ExpenseRecordRead(ExpenseRecordBase):
     uuid: UUID
     payment_id: int
 
-    class Config:
-        orm_mode = True
-
 
 class ExpenseRecordUpdate(BaseModel):
     amount: int | None = None
