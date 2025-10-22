@@ -18,10 +18,10 @@ router = APIRouter(
 )
 
 
-@router.post("/new", response_model=ApiResponse[ExpenseRecord])
+@router.post("/new", response_model=ApiResponse[ExpenseRecordRead])
 def create_expense_record(
     _: CurrentAdmin, record: ExpenseRecordCreate, db: DatabaseSession
-) -> ApiResponse[ExpenseRecord]:
+) -> ApiResponse[ExpenseRecordRead]:
     payment_record = PaymentRecord(
         amount=record.amount,
         transaction_id=record.transaction_id,
@@ -41,7 +41,18 @@ def create_expense_record(
     db.commit()
     db.refresh(expense_record)
     return ApiResponse(
-        message="Expense record created successfully", data=expense_record
+        message="Expense record created successfully",
+        data=ExpenseRecordRead(
+            amount=expense_record.payment_record.amount,
+            payment_id=expense_record.payment_id,
+            transaction_id=expense_record.payment_record.transaction_id,
+            payment_type=PaymentType.expense,
+            payment_time=expense_record.payment_record.payment_time,
+            details=expense_record.details,
+            note=expense_record.note,
+            paid_to=expense_record.paid_to,
+            uuid=expense_record.uuid,
+        ),
     )
 
 
