@@ -1,4 +1,4 @@
-from typing import List
+from typing import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
@@ -18,10 +18,10 @@ router = APIRouter(
 )
 
 
-@router.post("/new", response_model=ApiResponse[ExpenseRecordRead])
+@router.post("/new", response_model=ApiResponse[ExpenseRecord])
 def create_expense_record(
     _: CurrentAdmin, record: ExpenseRecordCreate, db: DatabaseSession
-):
+) -> ApiResponse[ExpenseRecord]:
     payment_record = PaymentRecord(
         amount=record.amount,
         transaction_id=record.transaction_id,
@@ -45,56 +45,95 @@ def create_expense_record(
     )
 
 
-@router.get("/", response_model=ApiResponse[List[ExpenseRecordRead]])
-def get_all_expense_records(_: CurrentAdmin, db: DatabaseSession):
-    records = db.exec(select(ExpenseRecord)).all()
-    return ApiResponse(message="Expense records retrieved successfully", data=records)
+@router.get("/", response_model=ApiResponse[Sequence[ExpenseRecordRead]])
+def get_all_expense_records(
+    _: CurrentAdmin, db: DatabaseSession
+) -> ApiResponse[Sequence[ExpenseRecordRead]]:
+    expense_records = db.exec(select(ExpenseRecord)).all()[::-1]
+    return ApiResponse(
+        message="Expense records retrieved successfully",
+        data=[
+            ExpenseRecordRead(
+                amount=expense_record.payment_record.amount,
+                payment_id=expense_record.payment_id,
+                transaction_id=expense_record.payment_record.transaction_id,
+                payment_type=PaymentType.expense,
+                payment_time=expense_record.payment_record.payment_time,
+                details=expense_record.details,
+                note=expense_record.note,
+                paid_to=expense_record.paid_to,
+                uuid=expense_record.uuid,
+            )
+            for expense_record in expense_records
+        ],
+    )
 
 
-@router.get("/{record_id}", response_model=ApiResponse[ExpenseRecordRead])
-def get_expense_record(_: CurrentAdmin, record_id: UUID, db: DatabaseSession):
-    record = db.get(ExpenseRecord, record_id)
-    if not record:
+@router.get("/{record_uuid}", response_model=ApiResponse[ExpenseRecordRead])
+def get_expense_record(_: CurrentAdmin, record_uuid: UUID, db: DatabaseSession):
+    expense_record = db.get(ExpenseRecord, record_uuid)
+    if not expense_record:
         raise HTTPException(status_code=404, detail="Expense record not found")
-    return ApiResponse(message="Expense record retrieved successfully", data=record)
+    return ApiResponse(
+        message="Expense record retrieved successfully",
+        data=ExpenseRecordRead(
+            amount=expense_record.payment_record.amount,
+            payment_id=expense_record.payment_id,
+            transaction_id=expense_record.payment_record.transaction_id,
+            payment_type=PaymentType.expense,
+            payment_time=expense_record.payment_record.payment_time,
+            details=expense_record.details,
+            note=expense_record.note,
+            paid_to=expense_record.paid_to,
+            uuid=expense_record.uuid,
+        ),
+    )
 
 
-@router.put("/update/{record_id}", response_model=ApiResponse[ExpenseRecordRead])
+@router.put("/update/{record_uuid}", response_model=ApiResponse[ExpenseRecordRead])
 def update_expense_record(
     _: CurrentAdmin,
-    record_id: UUID,
+    record_uuid: UUID,
     record_data: ExpenseRecordUpdate,
     db: DatabaseSession,
 ):
-    record = db.get(ExpenseRecord, record_id)
-    if not record:
+    expense_record = db.get(ExpenseRecord, record_uuid)
+    if not expense_record:
         raise HTTPException(status_code=404, detail="Expense record not found")
 
-    payment_record = db.exec(
-        select(PaymentRecord).where(PaymentRecord.payment_id == record.payment_id)
-    ).first()
-    if not payment_record:
-        raise HTTPException(status_code=404, detail="Payment record not found")
-
+    payment_record = expense_record.payment_record
     update_data = record_data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
-        if hasattr(record, key):
-            setattr(record, key, value)
+        if hasattr(expense_record, key):
+            setattr(expense_record, key, value)
         if hasattr(payment_record, key):
             setattr(payment_record, key, value)
 
-    db.add(record)
+    db.add(expense_record)
     db.add(payment_record)
     db.commit()
-    db.refresh(record)
-    return ApiResponse(message="Expense record updated successfully", data=record)
+    db.refresh(expense_record)
+    return ApiResponse(
+        message="Expense record updated successfully",
+        data=ExpenseRecordRead(
+            amount=expense_record.payment_record.amount,
+            payment_id=expense_record.payment_id,
+            transaction_id=expense_record.payment_record.transaction_id,
+            payment_type=PaymentType.expense,
+            payment_time=expense_record.payment_record.payment_time,
+            details=expense_record.details,
+            note=expense_record.note,
+            paid_to=expense_record.paid_to,
+            uuid=expense_record.uuid,
+        ),
+    )
 
 
-@router.delete("/delete/{record_id}", status_code=204)
+@router.delete("/delete/{record_uuid}", status_code=204)
 def delete_expense_record(
-    _: CurrentAdmin, record_id: UUID, db: DatabaseSession
+    _: CurrentAdmin, record_uuid: UUID, db: DatabaseSession
 ) -> ApiResponse[None]:
-    record = db.get(ExpenseRecord, record_id)
+    record = db.get(ExpenseRecord, record_uuid)
     if not record:
         raise HTTPException(status_code=404, detail="Expense record not found")
 

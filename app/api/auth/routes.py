@@ -228,7 +228,7 @@ def refresh_user_access_token(request: Request, db: DatabaseSession) -> JSONResp
 
     try:
         # Decode refresh token
-        payload = decode_token(refresh_token, verify_exp=True)
+        payload = decode_token(refresh_token)
         # print(f'{payload=}')
         uuid_str: str | None = payload.get("uuid")
         jti: str | None = payload.get("jti")
@@ -243,6 +243,7 @@ def refresh_user_access_token(request: Request, db: DatabaseSession) -> JSONResp
         # Validate user exists
         account = db.get(Account, UUID(uuid_str))
         if not account:
+            # print("account not found")
             raise HTTPException(
                 # just bored to send robotic messages!
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -257,12 +258,14 @@ def refresh_user_access_token(request: Request, db: DatabaseSession) -> JSONResp
             )
         )
         if not db_refresh_token:
+            # print("db refresh token not found")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Refresh token not found",
             )
 
         if db_refresh_token.revoked:
+            # print("refresh token revoked")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Refresh token revoked",
@@ -310,6 +313,130 @@ def refresh_user_access_token(request: Request, db: DatabaseSession) -> JSONResp
 
         response.set_cookie(**config.access_token_cookie_options(new_access_token))
         response.set_cookie(**config.refresh_token_cookie_options(new_refresh_token))
+
+        return response
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has expired",
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+
+
+@router.post(
+    "/admin/refresh-token",
+    summary="Refresh a admins's access token",
+    response_model=ApiResponse,
+)
+def refresh_admin_access_token(request: Request, db: DatabaseSession) -> JSONResponse:
+    refresh_token = request.cookies.get(config.jwt_refresh_key)
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token provided"
+        )
+
+    try:
+        # Decode refresh token
+        payload = decode_token(refresh_token)
+        # print(f'{payload=}')
+        uuid_str: str | None = payload.get("uuid")
+        jti: str | None = payload.get("jti")
+        token_type: str | None = payload.get("type")
+
+        if not uuid_str or not jti or token_type != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token payload",
+            )
+
+        # Validate user exists
+        account = db.get(Account, UUID(uuid_str))
+        if not account:
+            # print("account not found")
+            raise HTTPException(
+                # just bored to send robotic messages!
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Are you sure?",
+            )
+
+        admin = db.get(Admin, account.uuid)
+        if not admin:
+            raise HTTPException(
+                # just bored to send robotic messages!
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Are you sure?",
+            )
+
+        # Validate refresh token in DB
+        db_refresh_token = db.scalar(
+            select(RefreshToken).where(
+                RefreshToken.account_uuid == account.uuid,
+                RefreshToken.refresh_token_jti == jti,
+            )
+        )
+        if not db_refresh_token:
+            # print("db refresh token not found")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Refresh token not found",
+            )
+
+        if db_refresh_token.revoked:
+            # print("refresh token revoked")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Refresh token revoked",
+            )
+
+        # Check expiry
+        now = get_utc_time()
+        if db_refresh_token.expires_at.tzinfo is None:
+            expires_at = db_refresh_token.expires_at.replace(tzinfo=timezone.utc)
+        else:
+            expires_at = db_refresh_token.expires_at
+        if expires_at < now:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Refresh token expired"
+            )
+
+        #  Revoke old token
+        db_refresh_token.revoked = True
+        db.add(db_refresh_token)
+
+        #  Issue new access + refresh tokens
+        new_access_token = encode_token({"uuid": uuid_str, "type": "access"})
+
+        new_jti = str(uuid4())
+        new_refresh_token = encode_token(
+            {"uuid": uuid_str, "jti": new_jti, "type": "refresh"},
+            expiry_timedelta=timedelta(seconds=config.jwt_refresh_token_expiration),
+        )
+
+        new_db_token = RefreshToken(
+            account_uuid=account.uuid,
+            refresh_token_jti=new_jti,
+            created_at=now,
+            expires_at=now + timedelta(seconds=config.jwt_refresh_token_expiration),
+            revoked=False,
+        )
+        db.add(new_db_token)
+        db.commit()
+
+        #  Prepare response
+        response = JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content=ApiResponse(message="Token refreshed successfully").model_dump(),
+        )
+
+        response.set_cookie(**config.access_token_cookie_options(new_access_token))
+        response.set_cookie(
+            **config.admin_refresh_token_cookie_options(new_refresh_token)
+        )
 
         return response
 
