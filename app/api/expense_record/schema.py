@@ -14,6 +14,7 @@ class ExpenseRecordBase(BaseModel):
     details: str
     paid_to: str
     note: str | None = None
+    category: str
 
 
 class ExpenseRecordCreate(ExpenseRecordBase):

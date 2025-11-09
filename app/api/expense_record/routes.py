@@ -36,6 +36,7 @@ def create_expense_record(
         details=record.details,
         paid_to=record.paid_to,
         note=record.note,
+        category=record.category,
     )
     db.add(expense_record)
     db.commit()
@@ -52,6 +53,7 @@ def create_expense_record(
             note=expense_record.note,
             paid_to=expense_record.paid_to,
             uuid=expense_record.uuid,
+            category=expense_record.category,
         ),
     )
 
@@ -74,6 +76,7 @@ def get_all_expense_records(
                 note=expense_record.note,
                 paid_to=expense_record.paid_to,
                 uuid=expense_record.uuid,
+                category=expense_record.category,
             )
             for expense_record in expense_records
         ],
@@ -97,6 +100,7 @@ def get_expense_record(_: CurrentAdmin, record_uuid: UUID, db: DatabaseSession):
             note=expense_record.note,
             paid_to=expense_record.paid_to,
             uuid=expense_record.uuid,
+            category=expense_record.category,
         ),
     )
 
@@ -136,6 +140,7 @@ def update_expense_record(
             note=expense_record.note,
             paid_to=expense_record.paid_to,
             uuid=expense_record.uuid,
+            category=expense_record.category,
         ),
     )
 

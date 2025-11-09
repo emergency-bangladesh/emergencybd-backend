@@ -3,6 +3,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlmodel import select
 
 from ...database.models import (
@@ -189,7 +190,7 @@ def get_volunteer_recent_activities(
         Volunteer.uuid == volunteer_uuid,
         Volunteer.last_updated >= cutoff_date,
         Volunteer.last_updated
-        > Volunteer.created_at + timedelta(minutes=1),  # Not initial creation
+        > func.datetime(Volunteer.created_at, "+1 minute"),  # Not initial creation
     )
     volunteer_updates = db.exec(volunteer_updates_stmt).all()
 

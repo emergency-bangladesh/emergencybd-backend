@@ -41,6 +41,8 @@ class PaymentRecord(SQLModel, table=True):
 class IncomingRecordSource(str, Enum):
     grant = "grant"
     prize = "prize"
+    donation = "donation"
+    sponsorship = "sponsorship"
 
 
 class IncomingRecord(SQLModel, table=True):
@@ -68,6 +70,7 @@ class ExpenseRecord(SQLModel, table=True):
     payment_id: int = Field(
         foreign_key="paymentrecord.payment_id", index=True, ondelete="CASCADE"
     )
+    category: str = Field(index=True)
     details: str
     paid_to: str
     note: str | None = Field(None)

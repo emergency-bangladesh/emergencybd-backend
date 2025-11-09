@@ -12,7 +12,7 @@ class SQLAlchemyDateTimeUTC(TypeDecorator[datetime]):
     def process_bind_param(
         self, value: datetime | None, dialect: Dialect
     ) -> datetime | None:
-        if value is not None and value.tzinfo is not None:
+        if value is not None and hasattr(value, "tzinfo") and value.tzinfo is not None:
             return value.astimezone(timezone.utc).replace(tzinfo=None)
         return value
 

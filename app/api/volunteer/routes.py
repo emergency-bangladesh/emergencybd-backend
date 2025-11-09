@@ -75,6 +75,7 @@ def get_volunteers(
                 )
                 if active_team_memberships
                 else None,
+                unique_id=int(v.uuid),
             )
         )
 
@@ -198,40 +199,40 @@ Team Emergency Bangladesh
 # Get a single volunteer by ID
 @router.get("/{volunteer_uuid}", response_model=ApiResponse[VolunteerDetailResponse])
 def get_volunteer_by_uuid(volunteer_uuid: UUID, db: DatabaseSession):
-    volunteer = db.scalar(select(Volunteer).where(Volunteer.uuid == volunteer_uuid))
+    v = db.scalar(select(Volunteer).where(Volunteer.uuid == volunteer_uuid))
     now = get_utc_time()
-    if not volunteer:
+    if not v:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No volunteer verified or pending verification found",
         )
-    if volunteer.status in [VolunteerStatus.rejected, VolunteerStatus.terminated]:
+    if v.status in [VolunteerStatus.rejected, VolunteerStatus.terminated]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="The volunteer account is either terminated or rejected",
         )
 
     active_team_memberships = [
-        t for t in volunteer.team_memberships if t.team.expiration_date >= now.date()
+        t for t in v.team_memberships if t.team.expiration_date >= now.date()
     ]
 
     return ApiResponse(
         message="Volunteer details retrieved successfully",
         data=VolunteerDetailResponse(
-            volunteer_uuid=volunteer.uuid,
-            full_name=volunteer.full_name,
-            phone_number=volunteer.account.phone_number,
-            email_address=volunteer.account.email_address,
-            permanent_upazila=volunteer.permanent_upazila,
-            permanent_district=volunteer.permanent_district,
-            current_upazila=volunteer.current_upazila,
-            current_district=volunteer.current_district,
-            blood_group=volunteer.blood_group,
-            identifier_type=volunteer.identifier_type.value,
-            status=volunteer.status.value,
-            created_at=volunteer.created_at,
-            last_updated=volunteer.last_updated,
-            issue_responses=len(volunteer.issue_responses),
+            volunteer_uuid=v.uuid,
+            full_name=v.full_name,
+            phone_number=v.account.phone_number,
+            email_address=v.account.email_address,
+            permanent_upazila=v.permanent_upazila,
+            permanent_district=v.permanent_district,
+            current_upazila=v.current_upazila,
+            current_district=v.current_district,
+            blood_group=v.blood_group,
+            identifier_type=v.identifier_type.value,
+            status=v.status.value,
+            created_at=v.created_at,
+            last_updated=v.last_updated,
+            issue_responses=len(v.issue_responses),
             current_team_information=TeamInformation(
                 team_name=active_team_memberships[0].team.name,
                 role=active_team_memberships[0].role,
@@ -239,6 +240,7 @@ def get_volunteer_by_uuid(volunteer_uuid: UUID, db: DatabaseSession):
             )
             if active_team_memberships
             else None,
+            unique_id=int(v.uuid),
         ),
     )
 
