@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Column, Field, Relationship, SQLModel
 
-from ...types.datetime_utc import SQLAlchemyDateTimeUTC
+from ...types.datetime_utc import SADateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
@@ -31,10 +31,10 @@ class Account(SQLModel, table=True):
     password_hash: str
     status: AccountStatus = Field(default=AccountStatus.active, index=True)
     last_login: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     refresh_tokens: list["RefreshToken"] = Relationship(
@@ -51,21 +51,23 @@ class User(SQLModel, table=True):
     birth_date_nonce: bytes | None = Field(default=None)
     status: AccountStatus = Field(default=AccountStatus.active, index=True)
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     account: "Account" = Relationship()
 
 
 class Admin(SQLModel, table=True):
-    uuid: UUID = Field(
-        foreign_key="account.uuid", primary_key=True, index=True, ondelete="CASCADE"
-    )
+    uuid: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     full_name: str
     role: AdminRole = Field(index=True)
+    phone_number: str = Field(index=True, unique=True)
+    email_address: str = Field(index=True, unique=True)
+    password_hash: str
     status: AccountStatus = Field(default=AccountStatus.active, index=True)
-    created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+    last_login: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
-
-    account: "Account" = Relationship()
+    created_at: datetime = Field(
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
+    )

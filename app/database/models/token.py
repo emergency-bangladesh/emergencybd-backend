@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Column, Field, Relationship, SQLModel
 
-from ...types.datetime_utc import SQLAlchemyDateTimeUTC
+from ...types.datetime_utc import SADateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
@@ -18,10 +18,10 @@ class RefreshToken(SQLModel, table=True):
     )
     refresh_token_jti: str
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     expires_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     revoked: bool = Field(default=False)
 

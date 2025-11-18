@@ -37,6 +37,9 @@ class AppConfig(BaseSettings):
     jwt_password_reset_token_expiration: int = Field(
         ..., validation_alias="JWT_PASSWORD_RESET_TOKEN_EXPIRATION"
     )
+    ## jwt admin token options
+    jwt_admin_access_key: str = Field(..., validation_alias="ADMIN_JWT_ACCESS_KEY")
+    jwt_admin_refresh_key: str = Field(..., validation_alias="ADMIN_JWT_REFRESH_KEY")
 
     # smtp configuration
     smtp_server: str = Field(..., validation_alias="SMTP_SERVER")
@@ -89,6 +92,18 @@ class AppConfig(BaseSettings):
             **self._cookie_settings,
         )
 
+    def admin_access_token_cookie_options(self, access_token: str) -> dict[str, Any]:
+        return dict(
+            key=self.jwt_admin_access_key,
+            value=access_token,
+            max_age=self.jwt_access_token_expiration,
+            expires=(
+                datetime.now(timezone.utc)
+                + timedelta(seconds=self.jwt_access_token_expiration)
+            ),
+            **self._cookie_settings,
+        )
+
     def refresh_token_cookie_options(self, refresh_token: str) -> dict[str, Any]:
         return dict(
             key=self.jwt_refresh_key,
@@ -103,9 +118,9 @@ class AppConfig(BaseSettings):
 
     def admin_refresh_token_cookie_options(self, refresh_token: str) -> dict[str, Any]:
         return dict(
-            key=self.jwt_refresh_key,
+            key=self.jwt_admin_refresh_key,
             value=refresh_token,
-            max_age=self.jwt_refresh_token_expiration,
+            max_age=self.jwt_access_token_expiration * 2,
             expires=(
                 datetime.now(timezone.utc)
                 + timedelta(seconds=self.jwt_access_token_expiration * 2)

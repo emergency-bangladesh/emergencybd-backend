@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
-from sqlmodel import select
+from sqlmodel import desc, select
 
 from ...core.config import config
 from ...core.security import hash_password
@@ -43,7 +43,9 @@ def get_volunteers(
     skip: int = 0,
     limit: int = 100,
 ):
-    stmt = select(Volunteer).offset(skip).limit(limit)
+    stmt = (
+        select(Volunteer).order_by(desc(Volunteer.created_at)).offset(skip).limit(limit)
+    )
     volunteers = db.exec(stmt).all()
     now = get_utc_time()
 
@@ -75,13 +77,38 @@ def get_volunteers(
                 )
                 if active_team_memberships
                 else None,
-                unique_id=int(v.uuid),
+                unique_id=v.unique_id,
             )
         )
 
     return ApiResponse(
         message="Volunteers retrieved successfully",
         data=volunteer_details,
+    )
+
+
+## helper function
+def _send_email_about_volunteer_data_received(volunteer: Volunteer) -> None:
+    send_email(
+        volunteer.account.email_address,
+        "Your Volunteer Registration is Received",
+        f"""Hello {volunteer.full_name},
+
+Thank you for registering as a volunteer. We have successfully received your information.
+
+Account Status: Pending
+
+An admin will review and validate your details shortly.
+
+Once the verification is complete, you will receive a confirmation email, and your account will be marked as Verified.
+
+We truly appreciate your patience and your willingness to support our mission.
+
+Best regards,
+Team Emergency Bangladesh
+{config.smtp_mailfrom}
+""",
+        "plain",
     )
 
 
@@ -101,16 +128,18 @@ def create_volunteer(
             | (Account.email_address == payload.email_address)
         )
     )
-    # Create a new account if no existing account
-    if not account:
+    if not account:  # Create a new account if no existing account
         account = Account(
             phone_number=payload.phone_number,
             email_address=payload.email_address,
             password_hash=hash_password(payload.password),
         )
-        db.add(account)
-        db.commit()
-        db.refresh(account)
+    else:  # account is present, update password
+        account.password_hash = hash_password(payload.password)
+
+    db.add(account)
+    db.commit()
+    db.refresh(account)
 
     id_type = (
         VolunteerIdentifierType.nid
@@ -166,27 +195,7 @@ def create_volunteer(
         db.delete(user)
         db.commit()
 
-    background_tasks.add_task(
-        send_email,
-        mailto=payload.email_address,
-        subject="Your Volunteer Registration is Received",
-        body=f"""Hello {payload.full_name},
-
-Thank you for registering as a volunteer. We have successfully received your information.
-
-Account Status: Pending
-An admin will review and validate your details shortly.
-
-Once the verification is complete, you will receive a confirmation email, and your account will be marked as Verified.
-
-We truly appreciate your patience and your willingness to support our mission.
-
-Best regards,
-Team Emergency Bangladesh
-{config.smtp_mailfrom}
-""",
-        content_type="plain",
-    )
+    background_tasks.add_task(_send_email_about_volunteer_data_received, volunteer)
 
     return ApiResponse(
         message="Volunteer registration submitted. Awaiting manual validation.",
@@ -240,7 +249,7 @@ def get_volunteer_by_uuid(volunteer_uuid: UUID, db: DatabaseSession):
             )
             if active_team_memberships
             else None,
-            unique_id=int(v.uuid),
+            unique_id=v.unique_id,
         ),
     )
 
@@ -315,12 +324,121 @@ def update_volunteer_by_uuid(
     )
 
 
+def _send_pending_status_email(volunteer: Volunteer) -> None:
+    send_email(
+        volunteer.account.email_address,
+        "Your Emergency Bangladesh Profile Status – Pending",
+        f"""Dear {volunteer.full_name},
+
+Your profile has been received and is currently under initial assessment again.
+Please note your current account status below:
+
+ACCOUNT STATUS: PENDING
+
+Possible Reasons:
+- A high volume of submissions may be causing processing delays & mistakes.
+- Verification is pending cross-check with NID/BRN records.
+- Additional manual review is required due to unclear information.
+- Your profile is waiting in the system queue.
+
+You can find your profile here: https://emergencybd.com/volunteer/{volunteer.uuid}
+
+We will notify you once verification is complete.
+Kind regards,
+Emergency Bangladesh Support Team
+""",
+        "plain",
+    )
+
+
+def _send_verified_status_email(volunteer: Volunteer) -> None:
+    send_email(
+        volunteer.account.email_address,
+        "Your Emergency Bangladesh Profile Has Been Verified",
+        f"""Dear {volunteer.full_name},
+
+We are pleased to inform you that your profile has successfully passed all verification checks.
+
+ACCOUNT STATUS: VERIFIED
+
+This means:
+- All submitted details match official NID/BRN records.
+- Identification documents were valid and clearly readable.
+- Your profile picture meets platform requirements.
+- Your email address and phone number were successfully verified.
+- No inconsistencies were found during the review.
+
+You can find your profile here: https://emergencybd.com/volunteer/{volunteer.uuid}
+
+Your ID is now fully active and marked as verified by a verified tick beside your name on your profile. We are glad to get you within our network.
+
+Warm regards,
+Emergency Bangladesh Verification Unit""",
+        "plain",
+    )
+
+
+def _send_rejected_status_email(volunteer: Volunteer) -> None:
+    send_email(
+        volunteer.account.email_address,
+        "Your Emergency Bangladesh Verification Attempt Was Unsuccessful",
+        f"""Dear {volunteer.full_name},
+
+We regret to inform you that your profile could not be verified.
+
+ACCOUNT STATUS: REJECTED
+
+Possible Reasons:
+- NID/BRN number does not match the official record.
+- Identification document photo is unclear or invalid.
+- Personal details (name, birth date, blood group, etc.) do not match the document.
+- Required information is missing or incorrect.
+- Multiple inconsistent submissions were detected.
+- Potential suspicion of fraudulent or duplicate identity.
+
+Respectfully,
+Emergency Bangladesh Verification Unit""",
+        "plain",
+    )
+
+
+def _send_terminated_status_email(volunteer: Volunteer) -> None:
+    send_email(
+        volunteer.account.email_address,
+        "Important Notice – Profile Terminated",
+        f"""Dear {volunteer.full_name},
+
+This message is to notify you that your Emergency Bangladesh profile has been permanently deactivated.
+
+ACCOUNT STATUS: TERMINATED
+
+Possible Reasons:
+- Submission of false or fraudulent documents.
+- Violation of Emergency Bangladesh rules or misuse of services.
+- Multiple rejections without correction or cooperation.
+- Request from the account holder to close the profile.
+- Involvement in suspicious or prohibited activities.
+
+You can find your profile here: https://emergencybd.com/volunteer/{volunteer.uuid}
+
+If you believe this action is an error, please contact support.
+
+Sincerely,
+Emergency Bangladesh Administration""",
+        "plain",
+    )
+
+
 @router.patch(
     "/{volunteer_uuid}/update/status/{status}",
     response_model=ApiResponse[VolunteerUUID],
 )
 def update_volunteer_status(
-    volunteer_uuid: UUID, status: VolunteerStatus, db: DatabaseSession, _: CurrentAdmin
+    volunteer_uuid: UUID,
+    status: VolunteerStatus,
+    db: DatabaseSession,
+    _: CurrentAdmin,
+    background_tasks: BackgroundTasks,
 ):
     volunteer = db.get(Volunteer, volunteer_uuid)
     if not volunteer:
@@ -333,6 +451,18 @@ def update_volunteer_status(
 
     db.commit()
     db.refresh(volunteer)
+
+    match status:
+        case VolunteerStatus.pending:
+            background_tasks.add_task(_send_pending_status_email, volunteer)
+        case VolunteerStatus.verified:
+            background_tasks.add_task(_send_verified_status_email, volunteer)
+        case VolunteerStatus.rejected:
+            background_tasks.add_task(_send_rejected_status_email, volunteer)
+        case VolunteerStatus.terminated:
+            background_tasks.add_task(_send_terminated_status_email, volunteer)
+        case VolunteerStatus.picture_missing:
+            pass  # TODO: send email about the status
 
     # if status == VolunteerStatus.verified:
     #     os.remove(config.construct_nid_first_image_path(volunteer_uuid))
@@ -362,8 +492,10 @@ def delete_logged_in_volunteer(volunteer: CurrentVolunteer, db: DatabaseSession)
     )
 
 
-# Delete a volunteer with volunteer_uuid
-@router.delete("/{volunteer_uuid}/delete", response_model=ApiResponse[VolunteerUUID])
+# Delete a volunteer with volunteer_uuid : Only admin can perform this action
+@router.delete(
+    "/{volunteer_uuid}/delete-record", response_model=ApiResponse[VolunteerUUID]
+)
 def delete_volunteer_by_uuid(
     volunteer_uuid: UUID, db: DatabaseSession, _: CurrentAdmin
 ):

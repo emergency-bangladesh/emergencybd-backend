@@ -21,4 +21,6 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["gunicorn>=23.0.0"]
+dev = [
+    "gunicorn>=23.0.0",
+]

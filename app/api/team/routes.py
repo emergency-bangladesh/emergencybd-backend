@@ -13,7 +13,7 @@ from ..dependencies import (
     CurrentAdmin,
     CurrentVolunteer,
     DatabaseSession,
-    LoggedInAccount,
+    RequestingActor,
 )
 from ..global_schema import ApiResponse
 from .helper import check_permissions
@@ -34,7 +34,9 @@ router = APIRouter(prefix="/teams", tags=["Team Management"])
 
 
 @router.get("/", response_model=ApiResponse[Sequence[Team]])
-def get_all_teams(db: DatabaseSession, _: CurrentAdmin, skip: int = 0, limit: int = 100):
+def get_all_teams(
+    db: DatabaseSession, _: CurrentAdmin, skip: int = 0, limit: int = 100
+):
     teams = db.exec(select(Team).offset(skip).limit(limit)).all()
     return ApiResponse(
         message="Teams retrieved successfully",
@@ -49,7 +51,9 @@ def get_all_teams(db: DatabaseSession, _: CurrentAdmin, skip: int = 0, limit: in
 )
 def create_team(payload: TeamCreate, db: DatabaseSession, volunteer: CurrentVolunteer):
     if db.scalar(
-        select(Team).where(Team.name == payload.name, Team.expiration_date >= get_utc_time())
+        select(Team).where(
+            Team.name == payload.name, Team.expiration_date >= get_utc_time()
+        )
     ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -114,7 +118,9 @@ def create_team(payload: TeamCreate, db: DatabaseSession, volunteer: CurrentVolu
 def get_team_by_uuid(uuid: UUID, db: DatabaseSession) -> ApiResponse[TeamRead]:
     team = db.get(Team, uuid)
     if not team:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Team not found."
+        )
     return ApiResponse(
         message="Team retrieved successfully",
         data=TeamRead(
@@ -131,12 +137,16 @@ def get_team_by_uuid(uuid: UUID, db: DatabaseSession) -> ApiResponse[TeamRead]:
 
 
 @router.patch("/{uuid}/update", response_model=ApiResponse[TeamUpdateData])
-def update_team(uuid: UUID, payload: TeamUpdate, db: DatabaseSession, account: LoggedInAccount):
+def update_team(
+    uuid: UUID, payload: TeamUpdate, db: DatabaseSession, actor: RequestingActor
+):
     team = db.get(Team, uuid)
     if not team:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Team not found."
+        )
 
-    check_permissions(db, account, uuid, False)
+    check_permissions(db, actor, uuid, False)
 
     if payload.name and payload.name != team.name:
         if db.scalar(select(Team).where(Team.name == payload.name)):
@@ -245,12 +255,12 @@ def update_team(uuid: UUID, payload: TeamUpdate, db: DatabaseSession, account: L
     summary="Get All Team Members",
     response_model=ApiResponse[Sequence[TeamMemberRead]],
 )
-def get_all_team_members(uuid: UUID, db: DatabaseSession, account: LoggedInAccount):
+def get_all_team_members(uuid: UUID, db: DatabaseSession, actor: RequestingActor):
     team = db.get(Team, uuid)
     if not team:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Team Not Found")
 
-    check_permissions(db, account, uuid, False)
+    check_permissions(db, actor, uuid, False)
 
     return ApiResponse(
         message="Fetched members successfully",
@@ -259,12 +269,14 @@ def get_all_team_members(uuid: UUID, db: DatabaseSession, account: LoggedInAccou
 
 
 @router.get("/{uuid}/members/{member_uuid}", response_model=ApiResponse[TeamMemberRead])
-def get_team_member(uuid: UUID, member_uuid: UUID, db: DatabaseSession, account: LoggedInAccount):
+def get_team_member(
+    uuid: UUID, member_uuid: UUID, db: DatabaseSession, actor: RequestingActor
+):
     team = db.get(Team, uuid)
     if not team:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Team Not Found")
 
-    check_permissions(db, account, uuid, False)
+    check_permissions(db, actor, uuid, False)
 
     member_to_get = db.scalar(
         select(TeamMember).where(
@@ -272,7 +284,9 @@ def get_team_member(uuid: UUID, member_uuid: UUID, db: DatabaseSession, account:
         )
     )
     if not member_to_get:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team member not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Team member not found."
+        )
     return ApiResponse(
         message="Team member retrieved successfully",
         data=TeamMemberRead.model_validate(member_to_get),
@@ -281,17 +295,21 @@ def get_team_member(uuid: UUID, member_uuid: UUID, db: DatabaseSession, account:
 
 @router.post("/{uuid}/members/add", response_model=ApiResponse[TeamMemberCreateData])
 def add_team_member(
-    uuid: UUID, payload: TeamMemberCreate, db: DatabaseSession, account: LoggedInAccount
+    uuid: UUID, payload: TeamMemberCreate, db: DatabaseSession, actor: RequestingActor
 ):
     team = db.get(Team, uuid)
     if not team:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Team not found."
+        )
 
-    check_permissions(db, account, uuid, True)
+    check_permissions(db, actor, uuid, True)
 
     volunteer = db.get(Volunteer, payload.volunteer_uuid)
     if not volunteer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Volunteer not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Volunteer not found."
+        )
 
     existing_member = db.scalar(
         select(TeamMember)
@@ -317,7 +335,9 @@ def add_team_member(
 
     return ApiResponse(
         message="Volunteer added to team.",
-        data=TeamMemberCreateData(team_uuid=uuid, volunteer_uuid=payload.volunteer_uuid),
+        data=TeamMemberCreateData(
+            team_uuid=uuid, volunteer_uuid=payload.volunteer_uuid
+        ),
     )
 
 
@@ -326,22 +346,26 @@ def add_team_member(
     response_model=ApiResponse[TeamMemberDeleteData],
 )
 def remove_team_member(
-    uuid: UUID, member_uuid: UUID, db: DatabaseSession, account: LoggedInAccount
+    uuid: UUID, member_uuid: UUID, db: DatabaseSession, actor: RequestingActor
 ):
     team = db.get(Team, uuid)
     if not team:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Team not found."
+        )
 
     # Authorization check
-    admin = db.get(Admin, account.uuid)
-    current_member = db.scalar(
-        select(TeamMember).where(
-            TeamMember.team_uuid == uuid, TeamMember.volunteer_uuid == account.uuid
+    is_admin = isinstance(actor, Admin)
+    current_member = None
+    if not is_admin:
+        current_member = db.scalar(
+            select(TeamMember).where(
+                TeamMember.team_uuid == uuid, TeamMember.volunteer_uuid == actor.uuid
+            )
         )
-    )
 
     if not (
-        admin
+        is_admin
         or (
             current_member
             and current_member.role in [TeamMemberRole.leader, TeamMemberRole.co_leader]
@@ -382,7 +406,7 @@ def remove_team_member(
         )
 
     # Leader can't be removed by anyone except an admin
-    if member_to_remove.role == TeamMemberRole.leader and not admin:
+    if member_to_remove.role == TeamMemberRole.leader and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Leader can only be removed by an admin.",

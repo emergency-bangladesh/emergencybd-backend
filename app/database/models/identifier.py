@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Column, Field, Relationship, SQLModel
 
-from ...types.datetime_utc import SQLAlchemyDateTimeUTC
+from ...types.datetime_utc import SADateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ class NID(SQLModel, table=True):
     nid_cipher: bytes
     nid_nonce: bytes
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     account: "Account" = Relationship()
@@ -35,7 +35,7 @@ class BRN(SQLModel, table=True):
     brn_cipher: bytes
     brn_nonce: bytes
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     account: "Account" = Relationship()

@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Column, Field, Relationship, SQLModel
 
-from ...types.datetime_utc import SQLAlchemyDateTimeUTC
+from ...types.datetime_utc import SADateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
@@ -22,10 +22,10 @@ class TeamPlan(SQLModel, table=True):
     start_date: date = Field(index=True)
     end_date: date = Field(index=True)
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     last_updated: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     team: "Team" = Relationship(back_populates="plans")
@@ -41,10 +41,10 @@ class PlanActivity(SQLModel, table=True):
     exact_location: str
     effective_date: date = Field(index=True)
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     last_updated: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     plan: "TeamPlan" = Relationship(back_populates="activities")
@@ -65,13 +65,13 @@ class ActivityUpdate(SQLModel, table=True):
     details: str
     effective_time: datetime = Field(
         default_factory=get_utc_time,
-        sa_column=Column(SQLAlchemyDateTimeUTC, index=True),
+        sa_column=Column(SADateTimeUTC, index=True),
     )
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     last_updated: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     activity: "PlanActivity" = Relationship(back_populates="updates")

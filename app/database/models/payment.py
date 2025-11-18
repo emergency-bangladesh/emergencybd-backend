@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 from snowflake import SnowflakeGenerator  # type:ignore
 from sqlmodel import BigInteger, Column, Field, Relationship, SQLModel
 
-from ...types.datetime_utc import SQLAlchemyDateTimeUTC
+from ...types.datetime_utc import SADateTimeUTC
 from ...utils.time import get_utc_time
 
 gen = SnowflakeGenerator(1)
@@ -27,14 +27,14 @@ class PaymentRecord(SQLModel, table=True):
     payment_type: PaymentType = Field(index=True)
     payment_time: datetime = Field(
         default_factory=get_utc_time,
-        sa_column=Column(SQLAlchemyDateTimeUTC, index=True),
+        sa_column=Column(SADateTimeUTC, index=True),
     )
 
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     last_updated: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
 
@@ -56,10 +56,10 @@ class IncomingRecord(SQLModel, table=True):
     note: str | None = Field(None)
 
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     last_updated: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     payment_record: PaymentRecord = Relationship()
@@ -76,9 +76,9 @@ class ExpenseRecord(SQLModel, table=True):
     note: str | None = Field(None)
 
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     last_updated: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     payment_record: PaymentRecord = Relationship()

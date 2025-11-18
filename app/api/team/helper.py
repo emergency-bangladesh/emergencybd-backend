@@ -3,24 +3,23 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlmodel import select
 
-from ...database.models.account import Admin
+from ...database.models.account import Account, Admin
 from ...database.models.team import TeamMember, TeamMemberRole
-from ..dependencies import DatabaseSession, LoggedInAccount
+from ..dependencies import DatabaseSession
 
 
 def check_permissions(
     db: DatabaseSession,
-    account: LoggedInAccount,
+    actor: Account | Admin,
     team_uuid: UUID,
     leader_or_co_leader_only: bool = False,
 ):
-    is_admin = db.get(Admin, account.uuid)
-    if is_admin:
+    if isinstance(actor, Admin):
         return True
 
     team_member = db.scalar(
         select(TeamMember).where(
-            TeamMember.team_uuid == team_uuid, TeamMember.volunteer_uuid == account.uuid
+            TeamMember.team_uuid == team_uuid, TeamMember.volunteer_uuid == actor.uuid
         )
     )
 

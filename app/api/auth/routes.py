@@ -83,8 +83,8 @@ def get_admin_information(admin: CurrentAdmin) -> ApiResponse[AdminLoginInformat
         message="Admin information retrieved successfully",
         data=AdminLoginInformation(
             name=admin.full_name,
-            email=admin.account.email_address,
-            phone_number=admin.account.phone_number,
+            email=admin.email_address,
+            phone_number=admin.phone_number,
             uuid=admin.uuid,
             role=admin.role,
         ),
@@ -150,54 +150,37 @@ def login(cred: LoginCredentials, db: DatabaseSession):
     response_model=ApiResponse,
 )
 def admin_login(cred: LoginCredentials, db: DatabaseSession):
-    account = db.scalar(
-        select(Account).where(
-            Account.email_address == cred.email
-            and Account.status == AccountStatus.active
+    admin = db.scalar(
+        select(Admin).where(
+            Admin.email_address == cred.email, Admin.status == AccountStatus.active
         )
     )
-    if not account:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
-        )
-    if not verify_password(cred.password, account.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid credentials"
-        )
-    admin = db.get(Admin, account.uuid)
     if not admin:
         raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Admin account not found"
+        )
+    if not verify_password(cred.password, admin.password_hash):
+        raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Invalid credentials"
         )
-    access_token = encode_token({"uuid": str(account.uuid), "type": "access"})
+
+    access_token = encode_token({"uuid": str(admin.uuid), "type": "access"})
     jti = str(uuid4())
     refresh_token = encode_token(
-        {"uuid": str(account.uuid), "jti": jti, "type": "refresh"},
+        {"uuid": str(admin.uuid), "jti": jti, "type": "refresh"},
         expiry_timedelta=timedelta(seconds=config.jwt_refresh_token_expiration),
     )
 
-    db_refresh_token = RefreshToken(
-        account_uuid=account.uuid,
-        refresh_token_jti=jti,
-        created_at=get_utc_time(),
-        expires_at=(
-            get_utc_time() + timedelta(seconds=config.jwt_refresh_token_expiration)
-        ),
-    )
-    db.add(db_refresh_token)
-
-    account.last_login = get_utc_time()
-    admin.account.last_login = get_utc_time()
-    db.add(account)
+    admin.last_login = get_utc_time()
     db.add(admin)
     db.commit()
 
     response = JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=ApiResponse(message="Login successful").model_dump(),
+        content=ApiResponse(message="Admin login successful").model_dump(),
     )
 
-    response.set_cookie(**config.access_token_cookie_options(access_token))
+    response.set_cookie(**config.admin_access_token_cookie_options(access_token))
     response.set_cookie(**config.admin_refresh_token_cookie_options(refresh_token))
 
     return response
@@ -334,7 +317,7 @@ def refresh_user_access_token(request: Request, db: DatabaseSession) -> JSONResp
     response_model=ApiResponse,
 )
 def refresh_admin_access_token(request: Request, db: DatabaseSession) -> JSONResponse:
-    refresh_token = request.cookies.get(config.jwt_refresh_key)
+    refresh_token = request.cookies.get(config.jwt_admin_refresh_key)
     if not refresh_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token provided"
@@ -343,89 +326,25 @@ def refresh_admin_access_token(request: Request, db: DatabaseSession) -> JSONRes
     try:
         # Decode refresh token
         payload = decode_token(refresh_token)
-        # print(f'{payload=}')
         uuid_str: str | None = payload.get("uuid")
-        jti: str | None = payload.get("jti")
         token_type: str | None = payload.get("type")
 
-        if not uuid_str or not jti or token_type != "refresh":
+        if not uuid_str or token_type != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token payload",
             )
 
-        # Validate user exists
-        account = db.get(Account, UUID(uuid_str))
-        if not account:
-            # print("account not found")
-            raise HTTPException(
-                # just bored to send robotic messages!
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Are you sure?",
-            )
-
-        admin = db.get(Admin, account.uuid)
+        # Validate admin exists
+        admin = db.get(Admin, UUID(uuid_str))
         if not admin:
             raise HTTPException(
-                # just bored to send robotic messages!
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Are you sure?",
+                detail="Admin not found",
             )
 
-        # Validate refresh token in DB
-        db_refresh_token = db.scalar(
-            select(RefreshToken).where(
-                RefreshToken.account_uuid == account.uuid,
-                RefreshToken.refresh_token_jti == jti,
-            )
-        )
-        if not db_refresh_token:
-            # print("db refresh token not found")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Refresh token not found",
-            )
-
-        if db_refresh_token.revoked:
-            # print("refresh token revoked")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Refresh token revoked",
-            )
-
-        # Check expiry
-        now = get_utc_time()
-        if db_refresh_token.expires_at.tzinfo is None:
-            expires_at = db_refresh_token.expires_at.replace(tzinfo=timezone.utc)
-        else:
-            expires_at = db_refresh_token.expires_at
-        if expires_at < now:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Refresh token expired"
-            )
-
-        #  Revoke old token
-        db_refresh_token.revoked = True
-        db.add(db_refresh_token)
-
-        #  Issue new access + refresh tokens
-        new_access_token = encode_token({"uuid": uuid_str, "type": "access"})
-
-        new_jti = str(uuid4())
-        new_refresh_token = encode_token(
-            {"uuid": uuid_str, "jti": new_jti, "type": "refresh"},
-            expiry_timedelta=timedelta(seconds=config.jwt_refresh_token_expiration),
-        )
-
-        new_db_token = RefreshToken(
-            account_uuid=account.uuid,
-            refresh_token_jti=new_jti,
-            created_at=now,
-            expires_at=now + timedelta(seconds=config.jwt_refresh_token_expiration),
-            revoked=False,
-        )
-        db.add(new_db_token)
-        db.commit()
+        # Issue new access token
+        new_access_token = encode_token({"uuid": str(admin.uuid), "type": "access"})
 
         #  Prepare response
         response = JSONResponse(
@@ -433,9 +352,8 @@ def refresh_admin_access_token(request: Request, db: DatabaseSession) -> JSONRes
             content=ApiResponse(message="Token refreshed successfully").model_dump(),
         )
 
-        response.set_cookie(**config.access_token_cookie_options(new_access_token))
         response.set_cookie(
-            **config.admin_refresh_token_cookie_options(new_refresh_token)
+            **config.admin_access_token_cookie_options(new_access_token)
         )
 
         return response

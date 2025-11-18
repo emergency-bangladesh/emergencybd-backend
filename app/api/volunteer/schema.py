@@ -44,7 +44,7 @@ class VolunteerDetailResponse(BaseModel):
     last_updated: datetime
     issue_responses: int
     current_team_information: TeamInformation | None = None
-    unique_id: int
+    unique_id: str
 
     model_config = {"from_attributes": True}
 

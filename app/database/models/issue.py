@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Column, Field, Relationship, SQLModel
 
-from ...types.datetime_utc import SQLAlchemyDateTimeUTC
+from ...types.datetime_utc import SADateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
@@ -27,6 +27,7 @@ class IssueStatus(str, Enum):
     working = "working"
     solved = "solved"
     invalid = "invalid"
+    idle = "idle"
 
 
 class IssueResponseStatus(str, Enum):
@@ -44,16 +45,22 @@ class Issue(SQLModel, table=True):
     status: IssueStatus = Field(index=True, default=IssueStatus.open)
     category: IssueCategory = Field(index=True)
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     last_updated: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     account: "Account" = Relationship()
     volunteer_responses: list["VolunteerIssueResponse"] = Relationship(
         back_populates="issue", cascade_delete=True
     )
+
+
+class BloodDonationIssueStatus(str, Enum):
+    cross_matching_on_progress = "cross_matching_on_progress"
+    cross_matched = "cross_matched"
+    blood_donated = "blood_donated"
 
 
 # for issue.category='blood_donation'
@@ -73,10 +80,10 @@ class BloodDonationIssue(SQLModel, table=True):
     upazila: str
     instructions: str | None = Field(default=None)
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     last_updated: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     issue: "Issue" = Relationship()
@@ -100,10 +107,10 @@ class LostAndFoundIssue(SQLModel, table=True):
     blood_group: str | None = Field(default=None)
     occupation: str | None = Field(default=None)
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     last_updated: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     issue: "Issue" = Relationship()
@@ -117,7 +124,7 @@ class VolunteerIssueResponse(SQLModel, table=True):
     )
     status_mark: IssueResponseStatus | None = Field(default=None, index=True)
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     issue: "Issue" = Relationship(back_populates="volunteer_responses")

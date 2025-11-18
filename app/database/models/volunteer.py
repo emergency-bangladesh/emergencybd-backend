@@ -5,7 +5,7 @@ from uuid import UUID
 
 from sqlmodel import Column, Field, Relationship, SQLModel
 
-from ...types.datetime_utc import SQLAlchemyDateTimeUTC
+from ...types.datetime_utc import SADateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
@@ -25,6 +25,7 @@ class VolunteerStatus(str, Enum):
     verified = "verified"
     rejected = "rejected"
     terminated = "terminated"
+    picture_missing = "picture_missing"
 
 
 class Volunteer(SQLModel, table=True):
@@ -43,11 +44,15 @@ class Volunteer(SQLModel, table=True):
     current_district: str = Field(index=True)
     status: VolunteerStatus = Field(index=True, default=VolunteerStatus.pending)
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     last_updated: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
+
+    @property
+    def unique_id(self) -> str:
+        return self.created_at.strftime("%y%m%d%H%M%S%f")
 
     account: "Account" = Relationship()
     issue_responses: list["VolunteerIssueResponse"] = Relationship(

@@ -22,7 +22,7 @@ from ..dependencies import (
     CurrentAdmin,
     CurrentVolunteer,
     DatabaseSession,
-    LoggedInAccount,
+    RequestingActor,
 )
 from ..global_schema import ApiResponse
 from .schema import (
@@ -636,18 +636,17 @@ project.emergencybd@gmail.com | https://emergencybd.com
 def update_issue_status(
     uuid: UUID,
     db: DatabaseSession,
-    account: LoggedInAccount,
+    actor: RequestingActor,
     issue_status: IssueStatus,
 ):
     issue = db.get(Issue, uuid)
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
 
-    user = db.get(User, account.uuid)
-    admin = db.get(Admin, account.uuid)
+    is_admin = isinstance(actor, Admin)
+    is_creator = not is_admin and issue.account_uuid == actor.uuid
 
-    is_creator = user and issue.account_uuid == user.uuid
-    if not (admin or is_creator):
+    if not (is_admin or is_creator):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
         )

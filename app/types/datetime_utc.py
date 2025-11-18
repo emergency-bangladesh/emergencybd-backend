@@ -5,7 +5,7 @@ from sqlalchemy.types import DateTime as SQLAlchemyDateTime
 from sqlalchemy.types import TypeDecorator
 
 
-class SQLAlchemyDateTimeUTC(TypeDecorator[datetime]):
+class SADateTimeUTC(TypeDecorator[datetime]):
     impl = SQLAlchemyDateTime
     cache_ok = True
 

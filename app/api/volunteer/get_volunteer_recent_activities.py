@@ -6,16 +6,11 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlmodel import select
 
-from ...database.models import (
-    ActivityUpdate,
-    Issue,
-    PlanActivity,
-    Team,
-    TeamMember,
-    TeamPlan,
-    Volunteer,
-    VolunteerIssueResponse,
-)
+from app.database.models.issue import Issue, VolunteerIssueResponse
+from app.database.models.team import Team, TeamMember
+from app.database.models.team_plan import ActivityUpdate, PlanActivity, TeamPlan
+from app.database.models.volunteer import Volunteer
+
 from ...utils.time import get_utc_time
 from ..dependencies import DatabaseSession
 
@@ -67,7 +62,11 @@ def create_team_join_activity(team_member: TeamMember, team: Team) -> TeamJoinAc
 def create_issue_response_activity(
     response: VolunteerIssueResponse, issue: Issue
 ) -> IssueResponseActivity:
-    status_text = f" and marked it as {response.status_mark.value}" if response.status_mark else ""
+    status_text = (
+        f" and marked it as {response.status_mark.value}"
+        if response.status_mark
+        else ""
+    )
     return IssueResponseActivity(
         title="Responded to emergency issue",
         description=f"Responded to issue #{issue.uuid} ({issue.status.value}){status_text}",

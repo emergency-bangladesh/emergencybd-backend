@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Column, Field, Relationship, SQLModel
 
-from ...types.datetime_utc import SQLAlchemyDateTimeUTC
+from ...types.datetime_utc import SADateTimeUTC
 from ...utils.time import get_utc_time
 
 if TYPE_CHECKING:
@@ -30,10 +30,10 @@ class Team(SQLModel, table=True):
         default=None, foreign_key="volunteer.uuid", index=True, ondelete="SET NULL"
     )
     created_at: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
     last_updated: datetime = Field(
-        default_factory=get_utc_time, sa_column=Column(SQLAlchemyDateTimeUTC)
+        default_factory=get_utc_time, sa_column=Column(SADateTimeUTC)
     )
 
     leader: "Volunteer" = Relationship(
@@ -59,7 +59,7 @@ class TeamMember(SQLModel, table=True):
     role: TeamMemberRole = Field(index=True, default=TeamMemberRole.member)
     joined_at: datetime = Field(
         default_factory=get_utc_time,
-        sa_column=Column(SQLAlchemyDateTimeUTC, index=True),
+        sa_column=Column(SADateTimeUTC, index=True),
     )
 
     team: "Team" = Relationship(back_populates="members")
