@@ -96,7 +96,8 @@ def _send_email_about_volunteer_data_received(volunteer: Volunteer) -> None:
 
 Thank you for registering as a volunteer. We have successfully received your information.
 
-Account Status: Pending
+ACCOUND STATUS: PENDING
+VOLUNTEER UNIQUE ID : {volunteer.unique_id}
 
 An admin will review and validate your details shortly.
 
@@ -334,6 +335,7 @@ Your profile has been received and is currently under initial assessment again.
 Please note your current account status below:
 
 ACCOUNT STATUS: PENDING
+VOLUNTEER UNIQUE ID : {volunteer.unique_id}
 
 Possible Reasons:
 - A high volume of submissions may be causing processing delays & mistakes.
@@ -360,6 +362,7 @@ def _send_verified_status_email(volunteer: Volunteer) -> None:
 We are pleased to inform you that your profile has successfully passed all verification checks.
 
 ACCOUNT STATUS: VERIFIED
+VOLUNTEER UNIQUE ID : {volunteer.unique_id}
 
 This means:
 - All submitted details match official NID/BRN records.
@@ -387,6 +390,7 @@ def _send_rejected_status_email(volunteer: Volunteer) -> None:
 We regret to inform you that your profile could not be verified.
 
 ACCOUNT STATUS: REJECTED
+VOLUNTEER UNIQUE ID : {volunteer.unique_id}
 
 Possible Reasons:
 - NID/BRN number does not match the official record.
@@ -411,6 +415,7 @@ def _send_terminated_status_email(volunteer: Volunteer) -> None:
 This message is to notify you that your Emergency Bangladesh profile has been permanently deactivated.
 
 ACCOUNT STATUS: TERMINATED
+VOLUNTEER UNIQUE ID : {volunteer.unique_id}
 
 Possible Reasons:
 - Submission of false or fraudulent documents.
