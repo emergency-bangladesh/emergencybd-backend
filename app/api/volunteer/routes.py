@@ -373,6 +373,8 @@ This means:
 
 You can find your profile here: https://emergencybd.com/volunteer/{volunteer.uuid}
 
+Please help raise awareness about Emergency Bangladesh within your network and encourage them to register. Together, we can drive meaningful and recognizable changes for the people of Bangladesh.
+
 Your ID is now fully active and marked as verified by a verified tick beside your name on your profile. We are glad to get you within our network.
 
 Warm regards,
