@@ -52,7 +52,7 @@ class Volunteer(SQLModel, table=True):
 
     @property
     def unique_id(self) -> str:
-        return self.created_at.strftime("%y%m%d%H%M%S%f")
+        return self.created_at.strftime("%y%m%d%H%M%S%f")[:-3]
 
     account: "Account" = Relationship()
     issue_responses: list["VolunteerIssueResponse"] = Relationship(
