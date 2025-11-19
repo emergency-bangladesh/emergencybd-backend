@@ -120,10 +120,10 @@ class AppConfig(BaseSettings):
         return dict(
             key=self.jwt_admin_refresh_key,
             value=refresh_token,
-            max_age=self.jwt_access_token_expiration * 2,
+            max_age=self.jwt_access_token_expiration * 5,
             expires=(
                 datetime.now(timezone.utc)
-                + timedelta(seconds=self.jwt_access_token_expiration * 2)
+                + timedelta(seconds=self.jwt_access_token_expiration * 5)
             ),
             **self._cookie_settings,
         )
