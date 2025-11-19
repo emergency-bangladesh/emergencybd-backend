@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from sqlmodel import desc, select
 
 from ...core.config import config
@@ -119,9 +119,7 @@ Team Emergency Bangladesh
     status_code=status.HTTP_201_CREATED,
     response_model=ApiResponse[VolunteerCreateData],
 )
-def create_volunteer(
-    payload: VolunteerCreate, db: DatabaseSession, background_tasks: BackgroundTasks
-):
+def create_volunteer(payload: VolunteerCreate, db: DatabaseSession):
     # Check if an account with the given phone number or email already exists
     account = db.scalar(
         select(Account).where(
@@ -196,7 +194,7 @@ def create_volunteer(
         db.delete(user)
         db.commit()
 
-    background_tasks.add_task(_send_email_about_volunteer_data_received, volunteer)
+    _send_email_about_volunteer_data_received(volunteer)
 
     return ApiResponse(
         message="Volunteer registration submitted. Awaiting manual validation.",
@@ -441,11 +439,7 @@ Emergency Bangladesh Administration""",
     response_model=ApiResponse[VolunteerUUID],
 )
 def update_volunteer_status(
-    volunteer_uuid: UUID,
-    status: VolunteerStatus,
-    db: DatabaseSession,
-    _: CurrentAdmin,
-    background_tasks: BackgroundTasks,
+    volunteer_uuid: UUID, status: VolunteerStatus, db: DatabaseSession, _: CurrentAdmin
 ):
     volunteer = db.get(Volunteer, volunteer_uuid)
     if not volunteer:
@@ -461,13 +455,13 @@ def update_volunteer_status(
 
     match status:
         case VolunteerStatus.pending:
-            background_tasks.add_task(_send_pending_status_email, volunteer)
+            _send_pending_status_email(volunteer)
         case VolunteerStatus.verified:
-            background_tasks.add_task(_send_verified_status_email, volunteer)
+            _send_verified_status_email(volunteer)
         case VolunteerStatus.rejected:
-            background_tasks.add_task(_send_rejected_status_email, volunteer)
+            _send_rejected_status_email(volunteer)
         case VolunteerStatus.terminated:
-            background_tasks.add_task(_send_terminated_status_email, volunteer)
+            _send_terminated_status_email(volunteer)
         case VolunteerStatus.picture_missing:
             pass  # TODO: send email about the status
 
