@@ -3,6 +3,7 @@ from typing import Literal
 from uuid import UUID
 
 from ...database.models.team import TeamMemberRole
+from ...database.models.volunteer import VolunteerStatus
 from ..global_schema import BaseModel
 
 
@@ -39,7 +40,7 @@ class VolunteerDetailResponse(BaseModel):
     current_district: str
     blood_group: str
     identifier_type: Literal["nid", "brn"]
-    status: str
+    status: VolunteerStatus
     created_at: datetime
     last_updated: datetime
     issue_responses: int
@@ -56,7 +57,7 @@ class VolunteerUpdate(BaseModel):
 
 class VolunteerCreateData(BaseModel):
     volunteer_uuid: UUID
-    status: str
+    status: VolunteerStatus
 
 
 class VolunteerUUID(BaseModel):

@@ -39,7 +39,7 @@ router = APIRouter(prefix="/volunteers", tags=["volunteers"])
 @router.get("/", response_model=ApiResponse[list[VolunteerDetailResponse]])
 def get_volunteers(
     db: DatabaseSession,
-    _: CurrentAdmin,
+    _: CurrentAdmin,  # only admin can perfom this operation!
     skip: int = 0,
     limit: int = 100,
 ):
@@ -65,7 +65,7 @@ def get_volunteers(
                 current_district=v.current_district,
                 current_upazila=v.current_upazila,
                 blood_group=v.blood_group,
-                status=v.status.value,
+                status=v.status,
                 created_at=v.created_at,
                 last_updated=v.last_updated,
                 issue_responses=len(v.issue_responses),
@@ -199,7 +199,7 @@ def create_volunteer(payload: VolunteerCreate, db: DatabaseSession):
     return ApiResponse(
         message="Volunteer registration submitted. Awaiting manual validation.",
         data=VolunteerCreateData(
-            volunteer_uuid=volunteer.uuid, status=volunteer.status.value
+            volunteer_uuid=volunteer.uuid, status=volunteer.status
         ),
     )
 
@@ -237,7 +237,7 @@ def get_volunteer_by_uuid(volunteer_uuid: UUID, db: DatabaseSession):
             current_district=v.current_district,
             blood_group=v.blood_group,
             identifier_type=v.identifier_type.value,
-            status=v.status.value,
+            status=v.status,
             created_at=v.created_at,
             last_updated=v.last_updated,
             issue_responses=len(v.issue_responses),
@@ -434,6 +434,34 @@ Emergency Bangladesh Administration""",
     )
 
 
+def _send_missing_media_status_email(volunteer: Volunteer) -> None:
+    send_email(
+        volunteer.account.email_address,
+        "Profile Update Required – Missing Photograph",
+        f"""Dear {volunteer.full_name},
+
+Your profile verification is incomplete due to missing or invalid image files.
+
+ACCOUNT STATUS: MISSING MEDIA
+
+Possible Reasons:
+- No profile picture was uploaded.
+- NID/BRN document picture is missing.
+- The uploaded image file is corrupted or unreadable.
+- The picture does not clearly show your face or document details.
+- The system could not detect a proper image format.
+
+Please upload a clear photograph and document image to continue verification. You are requested to resubmit your image documents (NID picture of both sides and your profile picture) correctly once again by using the following link -
+
+Resubmission link: https://emergencybd.com/volunteer/upload-missing-media/{volunteer.uuid}
+You can find your profile here: https://emergencybd.com/volunteer/{volunteer.uuid}
+
+Kind regards,
+Emergency Bangladesh Support Team""",
+        "plain",
+    )
+
+
 @router.patch(
     "/{volunteer_uuid}/update/status/{status}",
     response_model=ApiResponse[VolunteerUUID],
@@ -462,8 +490,8 @@ def update_volunteer_status(
             _send_rejected_status_email(volunteer)
         case VolunteerStatus.terminated:
             _send_terminated_status_email(volunteer)
-        case VolunteerStatus.picture_missing:
-            pass  # TODO: send email about the status
+        case VolunteerStatus.missing_media:
+            _send_missing_media_status_email(volunteer)
 
     # if status == VolunteerStatus.verified:
     #     os.remove(config.construct_nid_first_image_path(volunteer_uuid))

@@ -25,7 +25,7 @@ class VolunteerStatus(str, Enum):
     verified = "verified"
     rejected = "rejected"
     terminated = "terminated"
-    picture_missing = "picture_missing"
+    missing_media = "missing-media"
 
 
 class Volunteer(SQLModel, table=True):

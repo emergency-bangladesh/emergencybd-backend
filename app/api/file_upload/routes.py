@@ -14,20 +14,22 @@ from .schema import FileUploadData
 router = APIRouter(prefix="/file-upload", tags=["File Upload"])
 
 
-def _process_and_save_image(image_file: UploadFile, output_path: str):
+def _process_and_save_image(
+    image_file: UploadFile, output_path: str, max_allowed_dimention: int = 1000
+):
     try:
         img = Image.open(image_file.file)
 
         original_width, original_height = img.size
-        max_side = max(original_width, original_height)
+        dimention_max = max(original_width, original_height)
 
         # Only resize if the longest side > 1000px
-        if max_side > 1000:
+        if dimention_max > max_allowed_dimention:
             if original_width > original_height:
-                new_width = 1000
+                new_width = max_allowed_dimention
                 new_height = int(original_height * (new_width / original_width))
             else:
-                new_height = 1000
+                new_height = max_allowed_dimention
                 new_width = int(original_width * (new_height / original_height))
 
             img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)  # type: ignore
@@ -60,10 +62,10 @@ async def upload_nid_images(
         )
 
     nid_first_img_path = config.construct_nid_first_image_path(volunteer_uuid)
-    _process_and_save_image(nid_first_img, str(nid_first_img_path))
+    _process_and_save_image(nid_first_img, str(nid_first_img_path), 1000)
 
     nid_second_img_path = config.construct_nid_second_image_path(volunteer_uuid)
-    _process_and_save_image(nid_second_img, str(nid_second_img_path))
+    _process_and_save_image(nid_second_img, str(nid_second_img_path), 1000)
 
     return ApiResponse(
         message="NID images uploaded successfully", data=FileUploadData(uploaded=True)
@@ -83,7 +85,7 @@ async def upload_profile_pic(
         )
 
     profile_pic_path = config.construct_profile_pic_path(volunteer_uuid)
-    _process_and_save_image(profile_pic, str(profile_pic_path))
+    _process_and_save_image(profile_pic, str(profile_pic_path), 512)
 
     return ApiResponse(
         message="Profile picture uploaded successfully",
@@ -112,7 +114,7 @@ async def upload_lost_and_found_images(
 
     for i, image in enumerate(images):
         image_path = config.construct_lost_and_found_image_path(issue_uuid, i + 1)
-        _process_and_save_image(image, str(image_path))
+        _process_and_save_image(image, str(image_path), 1000)
 
     return ApiResponse(
         message="Lost and Found issue images uploaded successfully",
