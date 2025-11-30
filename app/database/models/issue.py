@@ -28,6 +28,7 @@ class IssueStatus(str, Enum):
     solved = "solved"
     invalid = "invalid"
     idle = "idle"
+    closed = "closed"
 
 
 class IssueResponseStatus(str, Enum):
