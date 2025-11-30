@@ -40,13 +40,20 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
+trusted_domains = [
+    "localhost:3000",
+    "emergencybd.com",
+    "www.emergencybd.com",
+    "manage.emergencybd.com",
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",
-        "https://emergencybd.com",
-        "https://www.emergencybd.com",
-        "https://manage.emergencybd.com",
+        *(f"https://{domain}" for domain in trusted_domains),
+        *(f"http://{domain}" for domain in trusted_domains),
+        *(f"https://{domain}/" for domain in trusted_domains),
+        *(f"http://{domain}/" for domain in trusted_domains),
     ],
     allow_credentials=True,
     allow_methods=["*"],
