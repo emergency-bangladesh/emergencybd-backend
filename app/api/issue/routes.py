@@ -119,6 +119,7 @@ def get_blood_donation_issue_details(
         instructions=issue_detail.instructions,
         contact_person_name=contact_person_name,
         emergency_phone_number=issue.emergency_phone_number,
+        responders_uuid=[vol.volunteer_uuid for vol in issue.volunteer_responses],
     )
 
     return ApiResponse(
@@ -171,6 +172,7 @@ def get_lost_and_found_issue_details(
         occupation=issue_detail.occupation,
         contact_person_name=contact_person_name,
         emergency_phone_number=issue.emergency_phone_number,
+        responders_uuid=[vol.volunteer_uuid for vol in issue.volunteer_responses],
     )
 
     return ApiResponse(
@@ -294,7 +296,7 @@ Thank you for reaching out to Emergency BD. Your issue has been successfully cre
 Issue Details:
 Issue UUID: {issue.uuid}
 Category: {issue.category.value}
-Status: {issue.status}
+Status: {issue.status.value}
 Created At: {issue.created_at}
 Preview: https://emergencybd.com/issues/{issue.uuid}
 
@@ -417,7 +419,7 @@ Thank you for reaching out to Emergency BD. Your issue has been successfully cre
 Issue Details:
 Issue UUID: {issue.uuid}
 Category: {issue.category.value}
-Status: {issue.status}
+Status: {issue.status.value}
 Created At: {issue.created_at}
 Preview: https://emergencybd.com/issues/{issue.uuid}
 
@@ -541,7 +543,7 @@ Your issue has been updated to {issue.status.value}.
 Issue Details:
 Issue UUID: {issue.uuid}
 Category: {issue.category.value}
-Status: {issue.status}
+Status: {issue.status.value}
 Created At: {issue.created_at}
 Preview: https://emergencybd.com/issues/{issue.uuid}
 
@@ -572,7 +574,7 @@ Volunteer Profile: https://emergencybd.com/volunteers/{volunteer.uuid}
 Issue Details:
 Issue UUID: {issue.uuid}
 Category: {issue.category.value}
-Status: {issue.status}
+Status: {issue.status.value}
 Created At: {issue.created_at}
 Preview: https://emergencybd.com/issues/{issue.uuid}
 
@@ -604,7 +606,7 @@ Volunteer Profile: https://emergencybd.com/volunteer/{volunteer.uuid}
 Issue Details:
 Issue UUID: {issue.uuid}
 Category: {issue.category.value}
-Status: {issue.status}
+Status: {issue.status.value}
 Created At: {issue.created_at}
 Preview: https://emergencybd.com/issues/{issue.uuid}
 
@@ -673,7 +675,7 @@ Your issue has been updated to {issue.status.value}.
 Issue Details:
 Issue UUID: {issue.uuid}
 Category: {issue.category.value}
-Status: {issue.status}
+Status: {issue.status.value}
 Created At: {issue.created_at}
 Preview: https://emergencybd.com/issues/{issue.uuid}
 
@@ -698,7 +700,7 @@ project.emergencybd@gmail.com | https://emergencybd.com
     summary="Delete a issue report record from database",
     response_model=ApiResponse[IssueDeleteData],
 )
-def delete_issue(uuid: UUID, db: DatabaseSession, admin: CurrentAdmin):
+def delete_issue(uuid: UUID, db: DatabaseSession, _: CurrentAdmin):
     issue = db.get(Issue, uuid)
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")

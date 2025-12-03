@@ -67,6 +67,7 @@ class BloodDonationIssueRead(BaseModel):
     instructions: str | None
     contact_person_name: str
     emergency_phone_number: str
+    responders_uuid: Sequence[UUID]
 
 
 class LostAndFoundIssueRead(BaseModel):
@@ -88,6 +89,7 @@ class LostAndFoundIssueRead(BaseModel):
     occupation: str | None
     contact_person_name: str
     emergency_phone_number: str
+    responders_uuid: Sequence[UUID]
 
 
 # Schemas for updates and responses
