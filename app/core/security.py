@@ -1,6 +1,7 @@
 import base64
 import os
 import re
+from dataclasses import dataclass
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -11,7 +12,7 @@ from .config import config
 
 argon2_hasher = PasswordHasher(time_cost=2, memory_cost=32000, parallelism=1)
 key = base64.b64decode(config.app_key)
-acgm = AESGCM(key)
+enc = AESGCM(key)
 
 
 def hash_password(plain_password: str) -> str:
@@ -39,8 +40,14 @@ def validate_password(password: str):
     return password
 
 
-def encrypt(plain: str | int | bytes) -> tuple[bytes, bytes]:
-    nid_bytes = (
+@dataclass
+class Encrypted:
+    nonce: bytes
+    cipher: bytes
+
+
+def encrypt_data(plain: str | int | bytes) -> Encrypted:
+    to_encrypt = (
         str(plain).encode()
         if isinstance(plain, int)
         else plain.encode()
@@ -48,30 +55,31 @@ def encrypt(plain: str | int | bytes) -> tuple[bytes, bytes]:
         else plain
     )
     nonce = os.urandom(12)
-    return nonce, acgm.encrypt(nonce=nonce, data=nid_bytes, associated_data=None)
+    return Encrypted(
+        nonce, enc.encrypt(nonce=nonce, data=to_encrypt, associated_data=None)
+    )
 
 
-def decrypt(nonce: bytes, cipher: bytes) -> bytes:
-    return acgm.decrypt(nonce=nonce, data=cipher, associated_data=None)
+def decrypt_data(encrypted_data: Encrypted) -> bytes:
+    return enc.decrypt(
+        nonce=encrypted_data.nonce, data=encrypted_data.cipher, associated_data=None
+    )
 
 
-def verify_encryption(plain: str | int | bytes, nonce: bytes, cipher: bytes) -> bool:
-    nid_bytes = (
+def verify_encrypted_data(plain: str | int | bytes, encrypted_data: Encrypted) -> bool:
+    to_verity = (
         str(plain).encode()
         if isinstance(plain, int)
         else plain.encode()
         if isinstance(plain, str)
         else plain
     )
-    try:
-        decrypted = decrypt(nonce, cipher)
-        return decrypted == nid_bytes
-    except Exception:
-        return False
+    decrypted = decrypt_data(encrypted_data)
+    return decrypted == to_verity
 
 
 def generate_hmac(data: str | bytes):
-    nid_bytes = data.encode() if isinstance(data, str) else data
-    h = hmac.HMAC(key, hashes.SHA256())
-    h.update(nid_bytes)
+    data_bytes = data.encode() if isinstance(data, str) else data
+    h = hmac.HMAC(key, hashes.SHA512())
+    h.update(data_bytes)
     return h.finalize()

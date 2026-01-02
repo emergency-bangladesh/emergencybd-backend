@@ -1,25 +1,22 @@
-from dataclasses import dataclass
-
-from ..core.security import decrypt, encrypt, generate_hmac, verify_encryption
-
-
-@dataclass
-class EncNID:
-    nonce: bytes
-    cipher: bytes
+from ..core.security import (
+    Encrypted,
+    decrypt_data,
+    encrypt_data,
+    generate_hmac,
+    verify_encrypted_data,
+)
 
 
-def encrypt_nid(plain_nid: str | int | bytes) -> EncNID:
-    encrypted_nid = encrypt(plain_nid)
-    return EncNID(nonce=encrypted_nid[0], cipher=encrypted_nid[1])
+def encrypt_nid(plain_nid: str | int | bytes):
+    return encrypt_data(plain_nid)
 
 
-def decrypt_nid(enc_nid: EncNID) -> bytes:
-    return decrypt(enc_nid.nonce, enc_nid.cipher)
+def decrypt_nid(encrypted_nid: Encrypted) -> bytes:
+    return decrypt_data(encrypted_nid)
 
 
-def verify_nid(plain_nid: str | int | bytes, enc_nid: EncNID) -> bool:
-    return verify_encryption(plain_nid, enc_nid.nonce, enc_nid.cipher)
+def verify_nid(plain_nid: str | int | bytes, encrypted_nid: Encrypted) -> bool:
+    return verify_encrypted_data(plain_nid, encrypted_nid)
 
 
 def generate_nid_hmac(plain_nid: str | int | bytes) -> bytes:

@@ -14,8 +14,9 @@ class AppConfig(BaseSettings):
     # Database configuration
     database_uri: str = Field(..., validation_alias="DATABASE_URI")
 
-    # app secret key
+    # secret keys
     app_key: str = Field(..., validation_alias="APP_KEY")
+    nid_encryption_key: str = Field(..., validation_alias="NID_ENCRYPTION_KEY")
 
     # JWT configuration
     jwt_private_key: str = Field(..., validation_alias="JWT_PRIVATE_KEY")
