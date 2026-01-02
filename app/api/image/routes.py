@@ -58,7 +58,9 @@ async def get_nid_2(uuid: UUID, _: CurrentAdmin):
                 with open(file_path, "wb") as f:
                     f.write(encrypted_image_data)
 
-    return FileResponse(file_path, media_type="image/webp")
+    with open(file_path, "rb") as f:
+        decrypted_img_data = nid_fernet.decrypt(f.read())
+    return Response(content=decrypted_img_data, media_type="image/webp")
 
 
 @router.get("/issue/lost-and-found/{issue_uuid}/image-{image_number}")
