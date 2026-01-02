@@ -156,10 +156,10 @@ class AppConfig(BaseSettings):
         )
 
     def construct_nid_first_image_path(self, volunteer_uuid: UUID) -> Path:
-        return self.nid_dir / f"{volunteer_uuid}_nid_first.webp"
+        return self.nid_dir / f"{volunteer_uuid}_nid_first.encrypted"
 
     def construct_nid_second_image_path(self, volunteer_uuid: UUID) -> Path:
-        return self.nid_dir / f"{volunteer_uuid}_nid_second.webp"
+        return self.nid_dir / f"{volunteer_uuid}_nid_second.encrypted"
 
     def construct_profile_pic_path(self, volunteer_uuid: UUID) -> Path:
         return self.profile_pic_dir / f"{volunteer_uuid}.webp"
