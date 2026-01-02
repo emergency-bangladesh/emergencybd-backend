@@ -1,6 +1,8 @@
 import io
+from typing import IO
 from uuid import UUID
 
+from cryptography.fernet import Fernet
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from PIL import Image
 
@@ -12,40 +14,38 @@ from ..global_schema import ApiResponse
 from .schema import FileUploadData
 
 router = APIRouter(prefix="/file-upload", tags=["File Upload"])
+nid_fernet = Fernet(config.nid_encryption_key)
 
 
-def _process_and_save_image(
-    image_file: UploadFile, output_path: str, max_allowed_dimention: int = 1000
-):
+def _process_img(
+    image_file: IO[bytes],
+    max_allowed_dimension: int = 1000,
+) -> io.BytesIO:
     try:
-        img = Image.open(image_file.file)
-
+        img = Image.open(image_file)
         original_width, original_height = img.size
-        dimention_max = max(original_width, original_height)
 
         # Only resize if the longest side > 1000px
-        if dimention_max > max_allowed_dimention:
+        if max(original_width, original_height) > max_allowed_dimension:
             if original_width > original_height:
-                new_width = max_allowed_dimention
+                new_width = max_allowed_dimension
                 new_height = int(original_height * (new_width / original_width))
             else:
-                new_height = max_allowed_dimention
+                new_height = max_allowed_dimension
                 new_width = int(original_width * (new_height / original_height))
 
             img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)  # type: ignore
 
         img_buffer = io.BytesIO()
-        img.save(img_buffer, "WEBP", quality=80)  # Save with high quality
-
-        with open(output_path, "wb") as f:
-            f.write(img_buffer.getvalue())
+        img.save(img_buffer, "WEBP", quality=75)  # Save with high quality
+        return img_buffer
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid image data: {e}"
         )
     finally:
-        image_file.file.close()
+        image_file.close()
 
 
 @router.post("/volunteer/nid", response_model=ApiResponse[FileUploadData])
@@ -62,10 +62,18 @@ async def upload_nid_images(
         )
 
     nid_first_img_path = config.construct_nid_first_image_path(volunteer_uuid)
-    _process_and_save_image(nid_first_img, str(nid_first_img_path), 1000)
+    nid_1_img_data = _process_img(nid_first_img.file, 1000)
+    encrypted_nid_1_img_data = nid_fernet.encrypt(nid_1_img_data.getvalue())
 
     nid_second_img_path = config.construct_nid_second_image_path(volunteer_uuid)
-    _process_and_save_image(nid_second_img, str(nid_second_img_path), 1000)
+    nid_2_img_data = _process_img(nid_second_img.file, 1000)
+    nid_2_encrypted_img_data = nid_fernet.encrypt(nid_2_img_data.getvalue())
+
+    with open(nid_first_img_path, "wb") as nid_1_img_file:
+        nid_1_img_file.write(encrypted_nid_1_img_data)
+
+    with open(nid_second_img_path, "wb") as nid_2_img_file:
+        nid_2_img_file.write(nid_2_encrypted_img_data)
 
     return ApiResponse(
         message="NID images uploaded successfully", data=FileUploadData(uploaded=True)
@@ -85,7 +93,10 @@ async def upload_profile_pic(
         )
 
     profile_pic_path = config.construct_profile_pic_path(volunteer_uuid)
-    _process_and_save_image(profile_pic, str(profile_pic_path), 512)
+    profile_img_data = _process_img(profile_pic.file, 376)
+
+    with open(profile_pic_path, "wb") as profile_pic_file:
+        profile_pic_file.write(profile_img_data.getvalue())
 
     return ApiResponse(
         message="Profile picture uploaded successfully",
@@ -114,7 +125,9 @@ async def upload_lost_and_found_images(
 
     for i, image in enumerate(images):
         image_path = config.construct_lost_and_found_image_path(issue_uuid, i + 1)
-        _process_and_save_image(image, str(image_path), 1000)
+        img_data = _process_img(image.file, 1000)
+        with open(image_path, "wb") as img_file:
+            img_file.write(img_data.getvalue())
 
     return ApiResponse(
         message="Lost and Found issue images uploaded successfully",

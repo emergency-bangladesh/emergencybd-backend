@@ -1,14 +1,16 @@
 import os
 from uuid import UUID
 
+from cryptography.fernet import Fernet
 from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from ...core.config import config
 from ..dependencies import CurrentAdmin
 from ..global_schema import ApiResponse
 
 router = APIRouter(prefix="/image", tags=["Image Delivery"])
+nid_fernet = Fernet(config.nid_encryption_key)
 
 
 @router.get("/volunteer/{uuid}/profile-pic")
@@ -22,23 +24,43 @@ async def get_profile_pic(uuid: UUID):
 
 
 @router.get("/volunteer/{uuid}/nid-1")
-async def get_nid_1(uuid: UUID, admin: CurrentAdmin):
+async def get_nid_1(uuid: UUID, _: CurrentAdmin):
     file_path = config.construct_nid_first_image_path(uuid)
     if not os.path.exists(file_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Image not found"
-        )
-    return FileResponse(file_path, media_type="image/webp")
+        if not os.path.exists(str(file_path).replace(".encrypted", ".webp")):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Image not found"
+            )
+        else:
+            # encrypted if unencrypted
+            with open(str(file_path).replace(".encrypted", ".webp"), "rb") as f:
+                encrypted_image_data = nid_fernet.encrypt(f.read())
+                with open(file_path, "wb") as f:
+                    f.write(encrypted_image_data)
+
+    with open(file_path, "rb") as f:
+        decrypted_img_data = nid_fernet.decrypt(f.read())
+    return Response(content=decrypted_img_data, media_type="image/webp")
 
 
 @router.get("/volunteer/{uuid}/nid-2")
-async def get_nid_2(uuid: UUID, admin: CurrentAdmin):
+async def get_nid_2(uuid: UUID, _: CurrentAdmin):
     file_path = config.construct_nid_second_image_path(uuid)
     if not os.path.exists(file_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Image not found"
-        )
-    return FileResponse(file_path, media_type="image/webp")
+        if not os.path.exists(str(file_path).replace(".encrypted", ".webp")):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Image not found"
+            )
+        else:
+            # encrypted if unencrypted
+            with open(str(file_path).replace(".encrypted", ".webp"), "rb") as f:
+                encrypted_image_data = nid_fernet.encrypt(f.read())
+                with open(file_path, "wb") as f:
+                    f.write(encrypted_image_data)
+
+    with open(file_path, "rb") as f:
+        decrypted_img_data = nid_fernet.decrypt(f.read())
+    return Response(content=decrypted_img_data, media_type="image/webp")
 
 
 @router.get("/issue/lost-and-found/{issue_uuid}/image-{image_number}")
